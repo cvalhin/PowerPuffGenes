@@ -1,17 +1,17 @@
 ---
-title: "main_project"
-output: html_document
+title: "PowerPuff Genes Project"
+authors: "FN, CV, LP"
+output: 
+  html_document: 
+    toc: true
 date: "2025-03-17"
+
 editor_options: 
   chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-```{r required libraries, results='hide'}
-library(BiocManager)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
 library(IRanges)
 library(dplyr)
 library(tidyr)
@@ -31,206 +31,325 @@ library(broom)
 library(reshape)
 ```
 
-```{r}
-COUNTS_PATH <- "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/data/nf-3.14/salmon.merged.gene_counts.tsv"
-TPM_PATH    <- "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/data/nf-3.14/salmon.merged.gene_tpm.tsv"
+## Getting Started
+
+### Librarires prerequisites
+- IRanges
+- dplyr
+- tidyverse
+- ...
+
+### Data files
+- salmon counts
+- salmon tpm
+- maybe more files, maybe not
+
+
+## RNA-seq differential expression analysis
+
+### Define variables
+```{r define variables}
+COUNTS_PATH      <- "data/NF3-14_rep1/salmon.merged.gene_counts.tsv"
+TPM_PATH         <- "data/NF3-14_rep1/salmon.merged.gene_tpm.tsv"
+FILTER_TRESHOLD  <- 5
+P_VALUE_FILTER   <- 0.01
+LOG2_FOLD_FILTER <- 2
 ```
+
+- Maybe before moving to counts_filtered and further proccesing check if the data makes sense. For instance:
+  - Is dox regulating any genes (such as GFP or other reporter) that we can verify the increased expression (higher counts) for later time points? Verify this is the case in the counts_orig df. 
+  - For the previous question, we could even consider making a simple ggplot showing the expression of the reporter for all time points. May be also easier to do for the tpm files.
+  
+- For the filtering, look more into what other people do or try different parameters
+  - I have seen filtering by rowSums(counts_matrix) > 10
+  - Also, I have seen filtering done at the dds (DESeqDataSetFromMatrix) object instead of filtering before. Maybe see what is the difference?
+  
+
+### Counts analysis
 
 ```{r load counts and get counts filtered}
-# Load the gene counts table
-counts_df_orig <- read.table(counts_path, header=TRUE, row.names=1)
+# Read raw count data and make dictionary mapping gene id with gene name
+counts_orig  <- read.table(COUNTS_PATH, header=TRUE, row.names=1)
+g2s          <- data.frame(gene_id = rownames(counts_orig), 
+                           gene_name = counts_orig[ , 1]) 
+write.csv(g2s, "results/g2s.csv")
 
-# Create gene to symbol (g2s) dictionary mapping gene metadata (gene id) with gene name
-g2s<- data.frame(gene_id = rownames(counts_df_orig), gene_name = counts_df_orig[ , 1])
-write.csv(g2s, "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/results/g2s.csv")
+# Remove gene name column from counts and convert counts to numerical rounded matrix
+counts           <- counts_orig %>% select(-gene_name)
+counts_matrix    <- as.matrix(counts) 
+counts_matrix    <- round(counts_matrix)
 
-# Remove gene name column from matrix (matrices are numeric) and convert counts to numerical matrix
-counts_df                <- counts_df_orig %>% select(-gene_name)
-counts_matrix_numerical  <- as.matrix(counts_df) 
-counts_matrix_rounded    <- round(counts_matrix_numerical)
+# Filter genes with no counts for any of the samples
+counts_filtered  <- counts_matrix[rowSums(counts_matrix) > FILTER_TRESHOLD, ]
 
-# Filter genes with no relevant counts (less than 1 for the sum of the row)
-counts_filtered <- counts_matrix_rounded[rowSums(counts_matrix_rounded) > 0, ]
-
-# Save progress in an .RData file
-save(counts_df, counts_filtered, g2s, file = "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/results/counts_files.RData")
+save(counts_orig, counts, counts_filtered, g2s, file = "results/counts_files.RData")
 ```
 
-```{r make deseq_samples df}
+```{r make deseq_samples metadata file for DESeq2 }
 # Make a column from the titles of the columns of the counts_matrix table
-deseq_samples <- data.frame(sample_id = colnames(counts_df))
+deseq_samples  <- data.frame(sample_id = colnames(counts))
 
 # Get the time and replicate values from the sample names in deseq_samples
-split_values <- strsplit(deseq_samples$sample_id, "_")
-time_values <- sapply(split_values, function(x) x[[2]])
+split_values     <- strsplit(deseq_samples$sample_id, "_")
+time_values      <- sapply(split_values, function(x) x[[2]])
 replicate_values <- sapply(split_values, function(x) x[[3]])
 
 # Add time and replicate values as columns to deseq_samples and factor them
 deseq_samples$time_point <- time_values
-deseq_samples$replicate <- replicate_values
+deseq_samples$replicate  <- replicate_values
 deseq_samples$time_point <- factor(deseq_samples$time_point)
-deseq_samples$replicate <- factor(deseq_samples$replicate)
+deseq_samples$replicate  <- factor(deseq_samples$replicate)
 
-# testing sample sheet and counts are arranged properly 
-stopifnot(all(colnames(counts_integer) == rownames(deseq_samples$sample_id)))
+# Testing whether sample sheet and counts are arranged properly 
+stopifnot(all(colnames(counts) == rownames(deseq_samples$sample_id)))
 
-save(deseq_samples, file = "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/results/deseq_samples.RData")
+save(deseq_samples, file = "results/deseq_samples.RData")
 ```
 
 ```{r run DESeq and obtain rlogs}
 # Prepare DESeq dataset
-dds_time <- DESeqDataSetFromMatrix(countData = counts_filtered,
-                                         colData = deseq_samples,
-                                         design = ~ time_point) 
+dds <- DESeqDataSetFromMatrix(countData = counts_filtered,
+                              colData = deseq_samples,
+                              design = ~ time_point) 
 
 # Run DESeq and get the names for the comparisons
-dds_time      <- DESeq(dds_time)
-results_names <- resultsNames(dds_time)
-results_names <- results_names[results_names != "Intercept"]
+dds            <- DESeq(dds)
+results_names  <- resultsNames(dds)
+results_names  <- results_names[results_names != "Intercept"]
 
-# Regularized Log transformation (rlog) stabilizes variance for downstream visualization or clustering.
-rlog_counts <- rlog(dds_time, blind = TRUE)
-rlog_counts_matrix <- assay(rlog_counts)
-write_rds(rlog_counts_matrix, "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/results/rlog_counts.rds")
-save(dds_time, file = "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/results/dds_time.RData")
+# Regularized Log transformation (rlog) stabilizes variance for downstream visualization or clustering. (not sure if need to include)
+#rlog_counts <- rlog(dds, blind = TRUE)
+#rlog_counts_matrix <- assay(rlog_counts)
+#write_rds(rlog_counts_matrix, "results/rlog_counts.rds")
+
+save(dds, file = "results/dds.RData")
 ```
 
 ```{r obtain results for all comparisons}
 # Create empty df to store results values
-res_df <- data.frame("gene_id" = character(), 
-                     "baseMean" = numeric(), 
-                     "log2FoldChange" = numeric(), 
-                     "lfcSE" = numeric(),
-                     "stat" = numeric(),
-                     "pvalue" = numeric(),
-                     "padj" = numeric(),
-                     "gene_name" = character(),
-                     "result_name" = character())
+results <- data.frame("gene_id" = character(), 
+                      "baseMean" = numeric(), 
+                      "log2FoldChange" = numeric(), 
+                      "lfcSE" = numeric(),
+                      "stat" = numeric(),
+                      "pvalue" = numeric(),
+                      "padj" = numeric(),
+                      "gene_name" = character(),
+                      "result_name" = character())
 
 # Loop to get the results of each comparison from dds object and make main res_df with all of them
 for(i in 1:length(results_names)) {
   results_name <- results_names[i] # get time comparison i
-  res <- results(dds_time, name = results_name) # get DESeq results for time comparison i
+  res <- results(dds, name = results_name) # get DESeq results for time comparison i
   # Temporary df to store the results for each comparison i
   tmp_res_df <- res %>% as.data.frame() %>% 
     rownames_to_column("gene_id") %>% merge(g2s) %>% mutate(result_name = results_name)
   # Add the temporary df to the main res_df for each comparison i
-  res_df <- bind_rows(res_df, tmp_res_df)
+  results <- bind_rows(results, tmp_res_df)
 }
-save(res_df, file = "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/results/res_df.RData")
 ```
 
 ```{r filtering results}
-# Checking NAs: sum(is.na(res_df$padj))
-# If we do want to clear them out:NoNA <- complete.cases(res_df)
-  
-#filtered_res_df_2 <- filtered_res_df %>% filter(padj < 0.05, abs(log2FoldChange) > 1)
+# Filter based on p-value < 0.05 and log2 fold change > 1
+filtered_results <- results %>%
+  filter(padj < P_VALUE_FILTER, abs(log2FoldChange) > LOG2_FOLD_FILTER)
 
-filtered_res_df <- res_df %>%
-  filter(padj < 0.05)
-
-# gene_id and gene_name produces a list of 7573 and 7570 respectevly. Maybe check why?
-sig_genes <- unique(filtered_res_df$gene_name) # genes that change in at least one time point
-
-# Get all gene names that are significant
-sig_genes_df <- as.data.frame(filtered_res_df$gene_name, collapse = "\n")
-
-# Let's make sure to only get the unique names
-sig_genes_df <- unique(sig_genes_df)
-
-# Renaming the column (handy code that is used a lot :)
-sig_genes_df <- sig_genes_df %>% 
-  rename(gene_name = `filtered_res_df$gene_name`)
+# Get all gene names that are significant (drop gene name repetitions)
+filtered_genes <- as.data.frame(filtered_results$gene_name, collapse = "\n")
+filtered_genes <- unique(filtered_genes)
+colnames(filtered_genes)[1] <- "gene_name"
 
 # Now let's write this out and do gene enrichment analysis
-write.table(sig_genes_df["gene_name"], row.names = FALSE, col.names = FALSE, "results/gene_names.csv")
+write.table(filtered_genes["gene_name"], row.names = FALSE, col.names = FALSE, "results/filtered_genes.csv")
 
-# copy and paste into EnrichR 
-#https://maayanlab.cloud/Enrichr/
+save(results, filtered_results, filtered_genes, file = "results/DESeq2_results.RData")
+
+# May wanna take a look at these genes. Start at: https://maayanlab.cloud/Enrichr/
 ```
 
-```{r histogram visualization}
+```{r filtered results distributions}
 
-hist(filtered_res_df$baseMean)
+# Distribution of baseMean, lfcSE, p-values and fold change
+#hist(filtered_results$baseMean, xlim = c(0, 10000), breaks = 500) # May remove this plot
+#hist(filtered_results$lfcSE, xlim = c(0,5), breaks = 100) # May remove this histogram as well
+hist(filtered_results$padj, xlim = c(0,P_VALUE_FILTER ), breaks = 50)
+hist(filtered_results$log2FoldChange, xlim = c(-5, 5), breaks = 1000)
 
-# Let's change the X-axis
-hist(filtered_res_df$baseMean, xlim = c(0,1000), breaks = 1000)
+# T-test comparing baseMean expression of all genes vs filtered genes
+basemean_all_genes <- median(results$baseMean)
+basemean_fil_genes <- median(filtered_results$baseMean)
+t.test(results$baseMean, filtered_results$baseMean)
 
-# Let's do the same for Pvalue
-hist(filtered_res_df$padj)
-
-# Fold change
-hist(filtered_res_df$log2FoldChange, xlim = c(-5, 5), breaks = 1000)
-
-# How does this compare to Lfsce
-hist(filtered_res_df$lfcSE)
-
-# Let's see the median basemean expression of all genes
-basemean_all_genes <- median(res_df$baseMean)
-
-# Let's do the same for our sign genes 
-basemena_sig_genes <- median(filtered_res_df$baseMean)
-
-# Ok looks a lot higher basemean for our sign genes.
-# Let's do a t-test to see if this is signficant :
-
-t.test(res_df$baseMean, filtered_res_df$baseMean)
-
-# Cool it's a significant result :) !
-
-# First we need to load our counts matrix
-#counts_matrix <- read.table("/scratch/Shares/rinnclass/MASTER_CLASS/lessons/04_RNAseq_Dox/01_Mouse_dox_wt/good_class_RNAseq/pipeline_output/star_salmon/salmon.merged.gene_counts.tsv", header=TRUE, row.names=1)
-
-# Let's make sure our counts file is the right format
-#view(counts_matrix)
-
-# Ok so we see gene_name and gene_id are same in both filtered_res_df_2 and counts_matrix
-# Let's intersect these two tables !
-
-#counts_dox_genes <- counts_matrix[filtered_res_df_2$gene_id,]
-#unique(filtered_res_df_2$gene_id)
-# Isn't that handy we can index into the counts matrix and get 
-# the rows that match filtered_res_df_2$gene_id and all the columns
+# Intersect by gene_name filtered results table and raw counts
+counts_filtered_genes <- counts_orig[filtered_results$gene_id,]
+# TODO delete repetitive instances of genes
 ```
 
-```{r, TPM}
-TPM_orig <- read.table("/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/data/nf-3.14/salmon.merged.gene_tpm.tsv", header=TRUE, row.names=1)
+### TPM Analysis
 
-TPM <- TPM_orig %>% select(-gene_name)
+```{r, load tpm data and filter}
+# Read raw tpm data and delete gene name column
+tpm_orig  <- read.table(TPM_PATH, header=TRUE, row.names=1)
+tpm       <- tpm_orig %>% select(-gene_name)
 
-# Filtering for TPM of at least 1 across samples.
-TPM_filtered <- TPM[rowSums(TPM) > 0, ]
-# Checking
-any(rowSums(TPM_filtered) < 0)
-any(rowSums(TPM) < 0)
+# Filter genes with no counts for any of the samples
+tpm_filtered <- tpm[rowSums(tpm) > FILTER_TRESHOLD, ]
+```
 
-
-# Time and replicate values
+```{r calculate avg and sd for tpms}
+# Loop to calculate avg and sd for replicates at a given time point
 time_points <- c("0", "12", "24", "48", "96")
-replicates <- c("_1", "_2", "_3")
-
-# initialize list for results
-average_and_stddev_values <- list()
-# now each object into the for loop is "tp"
+avg_and_sd_values <- list()
 for (tp in time_points) {
-  cols <- grep(paste0("WT_", tp, "_"), colnames(TPM_filtered))
-  avg <- rowMeans(TPM_filtered[, cols])
-  std_dev <- apply(TPM_filtered[, cols], 1, sd)
-  std_dev <- data.frame(std_dev)
-  combined <- cbind(avg, std_dev)
-  average_and_stddev_values <- c(average_and_stddev_values, list(combined))
+  cols <- grep(paste0("WT_", tp, "_"), colnames(tpm_filtered))
+  avg  <- rowMeans(tpm_filtered[, cols])
+  sd   <- apply(tpm_filtered[, cols], 1, sd)
+  sd   <- data.frame(sd)
+  combined <- cbind(avg, sd)
+  avg_and_sd_values <- c(avg_and_sd_values, list(combined))
 }
 
-# Convert the list to a data frame
-average_and_stddev_values <- do.call(cbind, average_and_stddev_values)
-# Add column names for the time points
-colnames(average_and_stddev_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
+# Convert the list to a data frame and add column names for the respective timepoint
+avg_and_sd_values <- do.call(cbind,  avg_and_sd_values)
+colnames(avg_and_sd_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
 
-# note I am adding in some other files we just saved, this is in case
-# we just want to open up TPM data we still have G2s and Samplesheet.
-save(TPM, average_and_stddev_values, TPM_filtered, g2s, deseq_samples, file = "/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/results/TPM_results.Rdata" )
-
-# test
-load("/scratch/Shares/rinnclass/MASTER_CLASS/STUDENTS/lupa9404/MASTER_CLASS/project/results/TPM_results.Rdata")
+save(tpm_orig, tpm_filtered, avg_and_sd_values, file = "results/tpm_results.RData" )
 ```
 
+### Image analysis
+
+```{r drafts for ggplots}
+# Delete enviroment and load counts and tpm data
+load("results/DESeq2_results.RData")
+load("results/tpm_results.RData")
+
+# Volcano plot for log fold change vs padj. TRUE color may be genes worth looking into.
+ggplot(filtered_results, aes(x = log2FoldChange, y = padj, color = (padj<0.01 & abs(log2FoldChange) > 10 ))) +
+  facet_wrap(result_name ~ .) +
+  geom_point()
+
+# Histogram for log fold change vs padj
+ggplot(filtered_results, aes(x = log2FoldChange, fill = result_name)) +
+  facet_wrap(result_name ~ .) +
+  geom_histogram(bins = 50) 
+```
+
+```{r more code not to show, include=FALSE}
+# Distribution for log fold change vs padj
+#ggplot(filtered_results, aes(x = log2FoldChange , fill = padj<0.01, color = padj<0.01)) +
+  #facet_wrap(result_name ~ .) +
+  #geom_density(alpha = 0.1)
+
+# 2D density
+#ggplot(filtered_results, aes(x = log2FoldChange, y = lfcSE)) +
+  #geom_point() +
+  #xlim(-5,5) +
+  #geom_density_2d() 
+
+#ggplot(filtered_results, aes(x = padj, y = pvalue)) +
+  #geom_point() +
+  #geom_abline(slope = 1, intercept = 0) +
+  #geom_smooth(method = "lm")
+
+#lm_fit <- lm(filtered_results$padj ~ filtered_results$pvalue)
+#summary(lm_fit)
+#summary(filtered_results$padj)
+#lm_df <- tidy(lm_fit)
+
+#ggplot(filtered_results, aes(x = padj, y = pvalue)) +
+  #geom_point() +
+  #geom_abline(slope = 1/(lm_df$estimate[[2]]))
+
+# Bar plots
+#ggplot(filtered_results, aes(x = result_name, y = baseMean)) +
+  #geom_bar(stat = "identity")
+
+#sum_basemean <- filtered_results %>%
+  #filter(result_name == "time_point_12_vs_0") %>%
+  #summarise(sum_basemean = sum(baseMean))
+
+
+#ggplot(filtered_results, aes(x = result_name, y = baseMean)) +
+  #geom_point() +
+  #stat_summary(fun = "mean",
+               #color = "red",
+               #shape = 1,
+               #size = 2)
+
+
+#ggplot(filtered_results, aes(x = pvalue, y =padj, color = padj < 0.01)) +
+  #geom_point()+
+  #scale_x_continuous() +
+  #scale_color_brewer(palette = "Set1") 
+
+
+# Now let's pick a few genes of interest to plot.
+genes <- c("Pgk1-rs7", "Gm13691", "Gm13698", "Spink1", "Pappa", "H3c11")
+gene_values <- filtered_results %>%
+  filter(gene_name %in% genes)
+
+# Facet grid
+ggplot(gene_values, 
+       aes(x = log2FoldChange, y = padj )) +
+  facet_grid(gene_name ~ .) + 
+  geom_point()
+
+ggplot(gene_values, 
+       aes(x = log2FoldChange, y = padj )) +
+  facet_grid(gene_name ~ result_name) + 
+  geom_point()
+
+# Facet wrap
+ggplot(gene_values, 
+       aes(x = log2FoldChange, y = padj )) +
+  facet_wrap(gene_name ~ .) + 
+  geom_point()
+
+ggplot(gene_values, 
+       aes(x = log2FoldChange, y = padj )) +
+  facet_wrap(gene_name ~ result_name) + 
+  geom_point()
+
+ggplot(gene_values, 
+       aes(x = log2FoldChange, y = padj )) +
+  facet_wrap(gene_name ~ ., nrow = 2, ncol = 3) + 
+  geom_point()
+
+ggplot(gene_values, 
+       aes(x = log2FoldChange, y = padj )) +
+  facet_wrap(gene_name ~ ., nrow = 2, ncol = 3, scales = "free") + 
+  geom_point()
+  
+
+# Polar coordinates
+ggplot(filtered_results, aes(x = result_name)) +
+  geom_bar() +
+  coord_polar()
+
+ggplot(filtered_results) +
+  geom_bar(aes(x = result_name)) +
+  coord_polar(theta = 'y')
+
+
+ggplot(filtered_results, aes(x = log2FoldChange)) +
+  geom_density(alpha = 0.2, color = "#424242", fill = "#424242") +
+  theme_grey() +
+  xlab(expression("log2fold change")) +
+  ylab(expression("Density")) +
+  ggtitle("log2fold change",
+          subtitle = "genes regulated by dox and time")
+
+```
+## IGV Results
+![H19 gene track](results/IGV/h19_gene_track.png)
+This are the timepoint tracks for gene H19 using the GRCm38/mm10 genome
+
+## Future directions
+Pretty cool video on DESeq2 analysis:
+https://www.youtube.com/watch?v=NGbZmlGLG5w&t=264s
+
+Ideas of plots to include:
+- Circos plot
+  - Needs to know where the gene is located so need to use biomaRt to get data from ensembl and get the gene information (it looks a bit complicated)
+  - Will need to save a csv file with Gene ID, chromosome name, start position, end position + rows in results from DESeq2
+  - Plots can be made in Circa (easier) or through bash (harder)
