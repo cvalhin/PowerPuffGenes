@@ -1,12 +1,13 @@
 ---
 title: "PowerPuff Genes Project"
-authors: "FN, CV, LP"
-output: 
-  html_document: 
-    toc: true
+authors: FN, CV, LP
 date: "2025-03-17"
-
-editor_options: 
+output:
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+editor_options:
   chunk_output_type: console
 ---
 
@@ -55,14 +56,6 @@ FILTER_TRESHOLD  <- 5
 P_VALUE_FILTER   <- 0.01
 LOG2_FOLD_FILTER <- 2
 ```
-
-- Maybe before moving to counts_filtered and further proccesing check if the data makes sense. For instance:
-  - Is dox regulating any genes (such as GFP or other reporter) that we can verify the increased expression (higher counts) for later time points? Verify this is the case in the counts_orig df. 
-  - For the previous question, we could even consider making a simple ggplot showing the expression of the reporter for all time points. May be also easier to do for the tpm files.
-  
-- For the filtering, look more into what other people do or try different parameters
-  - I have seen filtering by rowSums(counts_matrix) > 10
-  - Also, I have seen filtering done at the dds (DESeqDataSetFromMatrix) object instead of filtering before. Maybe see what is the difference?
   
 
 ### Counts analysis
