@@ -1,6 +1,6 @@
 ---
-title: "PowerPuff Genes Project"
-authors: FN, CV, LP
+title: "PowerPuffGenes Report"
+authors: "FN, CV, LP"
 date: "2025-03-17"
 output:
   pdf_document:
@@ -11,6 +11,35 @@ editor_options:
   chunk_output_type: console
 ---
 
+# Introduction
+- Provide some intro and background about the project.
+
+# Goals 
+- May be a subsection of the introduction. Describe what we want to achieve
+  - General analysis of gene expression. Consider repeating the analysis from class but normalizing based on time 0.
+  - Compare genes with transient vs prolonged changes in expression after dox induction.
+  - Compare nextflow versions (3.14 and 3.18) and different runs for 3.14 (rep1 and rep2) results.
+
+# Methods
+- Explain in general the overall idea with RNA-seq analysis
+
+## Bench experiment
+- Ask JR about details of the experiment and how much
+
+## Nextflow RNA-Seq pipeline
+- Describe roughly the pipeline
+
+## DESeq2 analysis 
+- Not sure if its better to define it later but maybe mention some details about DESeq2 here
+
+# RNA-seq differential expression analysis
+
+## Nextflow output
+- May describe the results from the nextflow pipeline, some QC plots and the type of files produced. 
+
+## R Analysis (consider a better name)
+
+### Library Imports
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
 library(IRanges)
@@ -32,34 +61,16 @@ library(broom)
 library(reshape)
 ```
 
-## Getting Started
-
-### Librarires prerequisites
-- IRanges
-- dplyr
-- tidyverse
-- ...
-
-### Data files
-- salmon counts
-- salmon tpm
-- maybe more files, maybe not
-
-
-## RNA-seq differential expression analysis
-
-### Define variables
+### Parameter and path definition
 ```{r define variables}
 COUNTS_PATH      <- "data/NF3-14_rep1/salmon.merged.gene_counts.tsv"
 TPM_PATH         <- "data/NF3-14_rep1/salmon.merged.gene_tpm.tsv"
-FILTER_TRESHOLD  <- 5
+FILTER_TRESHOLD  <- 0
 P_VALUE_FILTER   <- 0.01
-LOG2_FOLD_FILTER <- 2
+LOG2_FOLD_FILTER <- 1
 ```
-  
 
-### Counts analysis
-
+### Data loading and preprocesing
 ```{r load counts and get counts filtered}
 # Read raw count data and make dictionary mapping gene id with gene name
 counts_orig  <- read.table(COUNTS_PATH, header=TRUE, row.names=1)
@@ -78,6 +89,7 @@ counts_filtered  <- counts_matrix[rowSums(counts_matrix) > FILTER_TRESHOLD, ]
 save(counts_orig, counts, counts_filtered, g2s, file = "results/counts_files.RData")
 ```
 
+### Metadata preparation
 ```{r make deseq_samples metadata file for DESeq2 }
 # Make a column from the titles of the columns of the counts_matrix table
 deseq_samples  <- data.frame(sample_id = colnames(counts))
@@ -99,6 +111,7 @@ stopifnot(all(colnames(counts) == rownames(deseq_samples$sample_id)))
 save(deseq_samples, file = "results/deseq_samples.RData")
 ```
 
+### Differential expression analysis
 ```{r run DESeq and obtain rlogs}
 # Prepare DESeq dataset
 dds <- DESeqDataSetFromMatrix(countData = counts_filtered,
@@ -142,6 +155,8 @@ for(i in 1:length(results_names)) {
 }
 ```
 
+
+### Filtering and visualization
 ```{r filtering results}
 # Filter based on p-value < 0.05 and log2 fold change > 1
 filtered_results <- results %>%
@@ -178,8 +193,7 @@ counts_filtered_genes <- counts_orig[filtered_results$gene_id,]
 # TODO delete repetitive instances of genes
 ```
 
-### TPM Analysis
-
+### TPM analysis
 ```{r, load tpm data and filter}
 # Read raw tpm data and delete gene name column
 tpm_orig  <- read.table(TPM_PATH, header=TRUE, row.names=1)
@@ -210,7 +224,6 @@ save(tpm_orig, tpm_filtered, avg_and_sd_values, file = "results/tpm_results.RDat
 ```
 
 ### Image analysis
-
 ```{r drafts for ggplots}
 # Delete enviroment and load counts and tpm data
 load("results/DESeq2_results.RData")
