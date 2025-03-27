@@ -66,7 +66,7 @@ library(reshape)
 COUNTS_PATH      <- "data/NF3-14_rep1/salmon.merged.gene_counts.tsv"
 TPM_PATH         <- "data/NF3-14_rep1/salmon.merged.gene_tpm.tsv"
 FILTER_TRESHOLD  <- 0
-P_VALUE_FILTER   <- 0.01
+P_VALUE_FILTER   <- 0.05
 LOG2_FOLD_FILTER <- 1
 ```
 
@@ -103,6 +103,7 @@ replicate_values <- sapply(split_values, function(x) x[[3]])
 deseq_samples$time_point <- time_values
 deseq_samples$replicate  <- replicate_values
 deseq_samples$time_point <- factor(deseq_samples$time_point)
+deseq_samples$time_point <- factor(deseq_samples$time_point, levels=c("0","12","24","48","96"))
 deseq_samples$replicate  <- factor(deseq_samples$replicate)
 
 # Testing whether sample sheet and counts are arranged properly 
@@ -122,6 +123,8 @@ dds <- DESeqDataSetFromMatrix(countData = counts_filtered,
 dds            <- DESeq(dds)
 results_names  <- resultsNames(dds)
 results_names  <- results_names[results_names != "Intercept"]
+results_names <- c(results_names, "time_point_24_vs_12", "time_point_48_vs_24", "time_point_96_vs_48")
+
 
 # Regularized Log transformation (rlog) stabilizes variance for downstream visualization or clustering. (not sure if need to include)
 #rlog_counts <- rlog(dds, blind = TRUE)
@@ -146,7 +149,8 @@ results <- data.frame("gene_id" = character(),
 # Loop to get the results of each comparison from dds object and make main res_df with all of them
 for(i in 1:length(results_names)) {
   results_name <- results_names[i] # get time comparison i
-  res <- results(dds, name = results_name) # get DESeq results for time comparison i
+  results_name <- strsplit(results_name, "_")
+  res <- results(dds, contrasts=c("time_point","result_name[3]","result_name[4]")) # get DESeq results for time comparison i
   # Temporary df to store the results for each comparison i
   tmp_res_df <- res %>% as.data.frame() %>% 
     rownames_to_column("gene_id") %>% merge(g2s) %>% mutate(result_name = results_name)
@@ -219,6 +223,9 @@ for (tp in time_points) {
 # Convert the list to a data frame and add column names for the respective timepoint
 avg_and_sd_values <- do.call(cbind,  avg_and_sd_values)
 colnames(avg_and_sd_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
+avg_and_sd_values <- as.data.frame(avg_and_sd_values) %>% rownames_to_column("gene_id") %>% merge(g2s)
+
+
 
 save(tpm_orig, tpm_filtered, avg_and_sd_values, file = "results/tpm_results.RData" )
 ```
