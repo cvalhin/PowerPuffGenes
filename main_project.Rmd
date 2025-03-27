@@ -61,7 +61,7 @@ library(broom)
 library(reshape)
 ```
 
-### Parameter and path definition
+### Parameters and paths definition
 ```{r define variables}
 COUNTS_PATH      <- "data/NF3-14_rep1/salmon.merged.gene_counts.tsv"
 TPM_PATH         <- "data/NF3-14_rep1/salmon.merged.gene_tpm.tsv"
@@ -70,7 +70,7 @@ P_VALUE_FILTER   <- 0.05
 LOG2_FOLD_FILTER <- 1
 ```
 
-### Data loading and preprocesing
+### Counts loading and preprocesing
 ```{r load counts and get counts filtered}
 # Read raw count data and make dictionary mapping gene id with gene name
 counts_orig  <- read.table(COUNTS_PATH, header=TRUE, row.names=1)
@@ -102,7 +102,6 @@ replicate_values <- sapply(split_values, function(x) x[[3]])
 # Add time and replicate values as columns to deseq_samples and factor them
 deseq_samples$time_point <- time_values
 deseq_samples$replicate  <- replicate_values
-deseq_samples$time_point <- factor(deseq_samples$time_point)
 deseq_samples$time_point <- factor(deseq_samples$time_point, levels=c("0","12","24","48","96"))
 deseq_samples$replicate  <- factor(deseq_samples$replicate)
 
@@ -114,17 +113,11 @@ save(deseq_samples, file = "results/deseq_samples.RData")
 
 ### Differential expression analysis
 ```{r run DESeq and obtain rlogs}
-# Prepare DESeq dataset
+# Prepare DESeq dataset and run DESea2
 dds <- DESeqDataSetFromMatrix(countData = counts_filtered,
                               colData = deseq_samples,
                               design = ~ time_point) 
-
-# Run DESeq and get the names for the comparisons
-dds            <- DESeq(dds)
-results_names  <- resultsNames(dds)
-results_names  <- results_names[results_names != "Intercept"]
-results_names <- c(results_names, "time_point_24_vs_12", "time_point_48_vs_24", "time_point_96_vs_48")
-
+dds <- DESeq(dds)
 
 # Regularized Log transformation (rlog) stabilizes variance for downstream visualization or clustering. (not sure if need to include)
 #rlog_counts <- rlog(dds, blind = TRUE)
@@ -135,26 +128,44 @@ save(dds, file = "results/dds.RData")
 ```
 
 ```{r obtain results for all comparisons}
-# Create empty df to store results values
-results <- data.frame("gene_id" = character(), 
-                      "baseMean" = numeric(), 
-                      "log2FoldChange" = numeric(), 
+# Define the comparisons
+comparison_list <- list(
+  # Time points against baseline
+  time_12_vs_0 = c("time_point", "12", "0"),
+  time_24_vs_0 = c("time_point", "24", "0"),
+  time_48_vs_0 = c("time_point", "48", "0"),
+  time_96_vs_0 = c("time_point", "96", "0"),
+  # Time series comparisons
+  time_24_vs_12 = c("time_point", "24", "12"),
+  time_48_vs_24 = c("time_point", "48", "24"),
+  time_96_vs_48 = c("time_point", "96", "48")
+)
+
+# Create empty df to store results values (schema looks good)
+results <- data.frame("gene_id" = character(),
+                      "baseMean" = numeric(),
+                      "log2FoldChange" = numeric(),
                       "lfcSE" = numeric(),
                       "stat" = numeric(),
                       "pvalue" = numeric(),
                       "padj" = numeric(),
                       "gene_name" = character(),
-                      "result_name" = character())
+                      "comparison" = character())
 
-# Loop to get the results of each comparison from dds object and make main res_df with all of them
-for(i in 1:length(results_names)) {
-  results_name <- results_names[i] # get time comparison i
-  results_name <- strsplit(results_name, "_")
-  res <- results(dds, contrasts=c("time_point","result_name[3]","result_name[4]")) # get DESeq results for time comparison i
-  # Temporary df to store the results for each comparison i
-  tmp_res_df <- res %>% as.data.frame() %>% 
-    rownames_to_column("gene_id") %>% merge(g2s) %>% mutate(result_name = results_name)
-  # Add the temporary df to the main res_df for each comparison i
+# Loop through the defined contrasts
+for(i in names(comparison_list)) {
+  current_comparison <- comparison_list[[i]] # get comparison i
+  res <- results(dds, contrast = current_comparison) # get results for time comparison i using 'contrast'
+  if (is.null(res)) {
+      warning(paste("Could not generate results for contrast:", contrast_name))
+      next}
+  # Temporary df to store the results for comparison i
+  tmp_res_df <- res %>% 
+    as.data.frame() %>%
+    rownames_to_column("gene_id") %>%
+    merge(g2s, by = "gene_id", all.x = TRUE) %>% 
+    mutate(comparison = i) 
+  # Add the temporary df to the main results df
   results <- bind_rows(results, tmp_res_df)
 }
 ```
