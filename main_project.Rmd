@@ -1,6 +1,6 @@
 ---
-title: "PowerPuff Genes Project"
-authors: FN, CV, LP
+title: "PowerPuffGenes Report"
+authors: "FN, CV, LP"
 date: "2025-03-17"
 output:
   pdf_document:
@@ -11,6 +11,35 @@ editor_options:
   chunk_output_type: console
 ---
 
+# Introduction
+- Provide some intro and background about the project.
+
+# Goals 
+- May be a subsection of the introduction. Describe what we want to achieve
+  - General analysis of gene expression. Consider repeating the analysis from class but normalizing based on time 0.
+  - Compare genes with transient vs prolonged changes in expression after dox induction.
+  - Compare nextflow versions (3.14 and 3.18) and different runs for 3.14 (rep1 and rep2) results.
+
+# Methods
+- Explain in general the overall idea with RNA-seq analysis
+
+## Bench experiment
+- Ask JR about details of the experiment and how much
+
+## Nextflow RNA-Seq pipeline
+- Describe roughly the pipeline
+
+## DESeq2 analysis 
+- Not sure if its better to define it later but maybe mention some details about DESeq2 here
+
+# RNA-seq differential expression analysis
+
+## Nextflow output
+- May describe the results from the nextflow pipeline, some QC plots and the type of files produced. 
+
+## R Analysis (consider a better name)
+
+### Library Imports
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
 library(IRanges)
@@ -32,34 +61,16 @@ library(broom)
 library(reshape)
 ```
 
-## Getting Started
-
-### Librarires prerequisites
-- IRanges
-- dplyr
-- tidyverse
-- ...
-
-### Data files
-- salmon counts
-- salmon tpm
-- maybe more files, maybe not
-
-
-## RNA-seq differential expression analysis
-
-### Define variables
+### Parameters and paths definition
 ```{r define variables}
 COUNTS_PATH      <- "data/NF3-14_rep1/salmon.merged.gene_counts.tsv"
 TPM_PATH         <- "data/NF3-14_rep1/salmon.merged.gene_tpm.tsv"
-FILTER_TRESHOLD  <- 5
-P_VALUE_FILTER   <- 0.01
-LOG2_FOLD_FILTER <- 2
+FILTER_TRESHOLD  <- 0
+P_VALUE_FILTER   <- 0.05
+LOG2_FOLD_FILTER <- 1
 ```
-  
 
-### Counts analysis
-
+### Counts loading and preprocesing
 ```{r load counts and get counts filtered}
 # Read raw count data and make dictionary mapping gene id with gene name
 counts_orig  <- read.table(COUNTS_PATH, header=TRUE, row.names=1)
@@ -78,6 +89,7 @@ counts_filtered  <- counts_matrix[rowSums(counts_matrix) > FILTER_TRESHOLD, ]
 save(counts_orig, counts, counts_filtered, g2s, file = "results/counts_files.RData")
 ```
 
+### Metadata preparation
 ```{r make deseq_samples metadata file for DESeq2 }
 # Make a column from the titles of the columns of the counts_matrix table
 deseq_samples  <- data.frame(sample_id = colnames(counts))
@@ -90,7 +102,7 @@ replicate_values <- sapply(split_values, function(x) x[[3]])
 # Add time and replicate values as columns to deseq_samples and factor them
 deseq_samples$time_point <- time_values
 deseq_samples$replicate  <- replicate_values
-deseq_samples$time_point <- factor(deseq_samples$time_point)
+deseq_samples$time_point <- factor(deseq_samples$time_point, levels=c("0","12","24","48","96"))
 deseq_samples$replicate  <- factor(deseq_samples$replicate)
 
 # Testing whether sample sheet and counts are arranged properly 
@@ -99,16 +111,13 @@ stopifnot(all(colnames(counts) == rownames(deseq_samples$sample_id)))
 save(deseq_samples, file = "results/deseq_samples.RData")
 ```
 
+### Differential expression analysis
 ```{r run DESeq and obtain rlogs}
-# Prepare DESeq dataset
+# Prepare DESeq dataset and run DESea2
 dds <- DESeqDataSetFromMatrix(countData = counts_filtered,
                               colData = deseq_samples,
                               design = ~ time_point) 
-
-# Run DESeq and get the names for the comparisons
-dds            <- DESeq(dds)
-results_names  <- resultsNames(dds)
-results_names  <- results_names[results_names != "Intercept"]
+dds <- DESeq(dds)
 
 # Regularized Log transformation (rlog) stabilizes variance for downstream visualization or clustering. (not sure if need to include)
 #rlog_counts <- rlog(dds, blind = TRUE)
@@ -119,29 +128,50 @@ save(dds, file = "results/dds.RData")
 ```
 
 ```{r obtain results for all comparisons}
-# Create empty df to store results values
-results <- data.frame("gene_id" = character(), 
-                      "baseMean" = numeric(), 
-                      "log2FoldChange" = numeric(), 
+# Define the comparisons
+comparison_list <- list(
+  # Time points against baseline
+  time_12_vs_0 = c("time_point", "12", "0"),
+  time_24_vs_0 = c("time_point", "24", "0"),
+  time_48_vs_0 = c("time_point", "48", "0"),
+  time_96_vs_0 = c("time_point", "96", "0"),
+  # Time series comparisons
+  time_24_vs_12 = c("time_point", "24", "12"),
+  time_48_vs_24 = c("time_point", "48", "24"),
+  time_96_vs_48 = c("time_point", "96", "48")
+)
+
+# Create empty df to store results values (schema looks good)
+results <- data.frame("gene_id" = character(),
+                      "baseMean" = numeric(),
+                      "log2FoldChange" = numeric(),
                       "lfcSE" = numeric(),
                       "stat" = numeric(),
                       "pvalue" = numeric(),
                       "padj" = numeric(),
                       "gene_name" = character(),
-                      "result_name" = character())
+                      "comparison" = character())
 
-# Loop to get the results of each comparison from dds object and make main res_df with all of them
-for(i in 1:length(results_names)) {
-  results_name <- results_names[i] # get time comparison i
-  res <- results(dds, name = results_name) # get DESeq results for time comparison i
-  # Temporary df to store the results for each comparison i
-  tmp_res_df <- res %>% as.data.frame() %>% 
-    rownames_to_column("gene_id") %>% merge(g2s) %>% mutate(result_name = results_name)
-  # Add the temporary df to the main res_df for each comparison i
+# Loop through the defined contrasts
+for(i in names(comparison_list)) {
+  current_comparison <- comparison_list[[i]] # get comparison i
+  res <- results(dds, contrast = current_comparison) # get results for time comparison i using 'contrast'
+  if (is.null(res)) {
+      warning(paste("Could not generate results for contrast:", contrast_name))
+      next}
+  # Temporary df to store the results for comparison i
+  tmp_res_df <- res %>% 
+    as.data.frame() %>%
+    rownames_to_column("gene_id") %>%
+    merge(g2s, by = "gene_id", all.x = TRUE) %>% 
+    mutate(comparison = i) 
+  # Add the temporary df to the main results df
   results <- bind_rows(results, tmp_res_df)
 }
 ```
 
+
+### Filtering and visualization
 ```{r filtering results}
 # Filter based on p-value < 0.05 and log2 fold change > 1
 filtered_results <- results %>%
@@ -178,8 +208,7 @@ counts_filtered_genes <- counts_orig[filtered_results$gene_id,]
 # TODO delete repetitive instances of genes
 ```
 
-### TPM Analysis
-
+### TPM analysis
 ```{r, load tpm data and filter}
 # Read raw tpm data and delete gene name column
 tpm_orig  <- read.table(TPM_PATH, header=TRUE, row.names=1)
@@ -205,12 +234,14 @@ for (tp in time_points) {
 # Convert the list to a data frame and add column names for the respective timepoint
 avg_and_sd_values <- do.call(cbind,  avg_and_sd_values)
 colnames(avg_and_sd_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
+avg_and_sd_values <- as.data.frame(avg_and_sd_values) %>% rownames_to_column("gene_id") %>% merge(g2s)
+
+
 
 save(tpm_orig, tpm_filtered, avg_and_sd_values, file = "results/tpm_results.RData" )
 ```
 
 ### Image analysis
-
 ```{r drafts for ggplots}
 # Delete enviroment and load counts and tpm data
 load("results/DESeq2_results.RData")
