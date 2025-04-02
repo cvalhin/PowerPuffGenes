@@ -1,0 +1,427 @@
+---
+title: "PowerPuffGenes Report"
+authors: "FN, CV, LP"
+date: "2025-03-17"
+output:
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+editor_options:
+  chunk_output_type: console
+---
+
+# Introduction
+- Provide some intro and background about the project.
+
+# Goals 
+- May be a subsection of the introduction. Describe what we want to achieve
+  - General analysis of gene expression. Consider repeating the analysis from class but normalizing based on time 0.
+  - Compare genes with transient vs prolonged changes in expression after dox induction.
+  - Compare nextflow versions (3.14 and 3.18) and different runs for 3.14 (rep1 and rep2) results.
+
+# Methods
+- Explain in general the overall idea with RNA-seq analysis
+
+## Bench experiment
+- Ask JR about details of the experiment and how much
+
+## Nextflow RNA-Seq pipeline
+- Describe roughly the pipeline
+
+## DESeq2 analysis 
+- Not sure if its better to define it later but maybe mention some details about DESeq2 here
+
+# RNA-seq differential expression analysis
+
+## Nextflow output
+- May describe the results from the nextflow pipeline, some QC plots and the type of files produced. 
+
+## R Analysis (consider a better name)
+
+### Library Imports
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
+library(IRanges)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(readr)
+library(ggplot2)
+library(purrr)
+library(magrittr)
+library(pheatmap)
+library(textshape)
+library(Rcpp)
+library(matrixStats)
+library(rtracklayer)
+library(tidyverse)
+library(DESeq2)
+library(broom)
+library(reshape)
+library(stats)
+```
+
+### Parameters and paths definition
+```{r define variables}
+COUNTS_PATH      <- "data/NF3-14_rep1/salmon.merged.gene_counts.tsv"
+TPM_PATH         <- "data/NF3-14_rep1/salmon.merged.gene_tpm.tsv"
+FILTER_TRESHOLD  <- 0
+P_VALUE_FILTER   <- 0.05
+LOG2_FOLD_FILTER <- 1
+```
+
+### Counts loading and preprocesing
+```{r load counts and get counts filtered}
+# Read raw count data and make dictionary mapping gene id with gene name
+counts_orig  <- read.table(COUNTS_PATH, header=TRUE, row.names=1)
+g2s          <- data.frame(gene_id = rownames(counts_orig), 
+                           gene_name = counts_orig[ , 1]) 
+write.csv(g2s, "results/g2s.csv")
+
+# Remove gene name column from counts and convert counts to numerical rounded matrix
+counts           <- counts_orig %>% select(-gene_name)
+counts_matrix    <- as.matrix(counts) 
+counts_matrix    <- round(counts_matrix)
+
+# Filter genes with no counts for any of the samples
+counts_filtered  <- counts_matrix[rowSums(counts_matrix) > FILTER_TRESHOLD, ]
+
+save(counts_orig, counts, counts_filtered, g2s, file = "results/counts_files.RData")
+```
+
+### Metadata preparation
+```{r make deseq_samples metadata file for DESeq2 }
+# Make a column from the titles of the columns of the counts_matrix table
+deseq_samples  <- data.frame(sample_id = colnames(counts))
+
+# Get the time and replicate values from the sample names in deseq_samples
+split_values     <- strsplit(deseq_samples$sample_id, "_")
+time_values      <- sapply(split_values, function(x) x[[2]])
+replicate_values <- sapply(split_values, function(x) x[[3]])
+
+# Add time and replicate values as columns to deseq_samples and factor them
+deseq_samples$time_point <- time_values
+deseq_samples$replicate  <- replicate_values
+deseq_samples$time_point <- factor(deseq_samples$time_point, levels=c("0","12","24","48","96"))
+deseq_samples$replicate  <- factor(deseq_samples$replicate)
+
+# Testing whether sample sheet and counts are arranged properly 
+stopifnot(all(colnames(counts) == rownames(deseq_samples$sample_id)))
+
+save(deseq_samples, file = "results/deseq_samples.RData")
+```
+
+### Differential expression analysis
+```{r run DESeq and obtain rlogs}
+# Prepare DESeq dataset and run DESea2
+dds <- DESeqDataSetFromMatrix(countData = counts_filtered,
+                              colData = deseq_samples,
+                              design = ~ time_point) 
+dds <- DESeq(dds)
+
+# Regularized Log transformation (rlog) stabilizes variance for downstream visualization or clustering. (not sure if need to include)
+#rlog_counts <- rlog(dds, blind = TRUE)
+#rlog_counts_matrix <- assay(rlog_counts)
+#write_rds(rlog_counts_matrix, "results/rlog_counts.rds")
+
+save(dds, file = "results/dds.RData")
+```
+
+```{r obtain results for all comparisons}
+# Define the comparisons
+comparison_list <- list(
+  # Time points against baseline
+  time_12_vs_0 = c("time_point", "12", "0"),
+  time_24_vs_0 = c("time_point", "24", "0"),
+  time_48_vs_0 = c("time_point", "48", "0"),
+  time_96_vs_0 = c("time_point", "96", "0"),
+  # Time series comparisons
+  time_24_vs_12 = c("time_point", "24", "12"),
+  time_48_vs_24 = c("time_point", "48", "24"),
+  time_96_vs_48 = c("time_point", "96", "48")
+)
+
+# Create empty df to store results values (schema looks good)
+results <- data.frame("gene_id" = character(),
+                      "baseMean" = numeric(),
+                      "log2FoldChange" = numeric(),
+                      "lfcSE" = numeric(),
+                      "stat" = numeric(),
+                      "pvalue" = numeric(),
+                      "padj" = numeric(),
+                      "gene_name" = character(),
+                      "result_name" = character())
+
+# Loop through the defined contrasts
+for(i in names(comparison_list)) {
+  current_comparison <- comparison_list[[i]] # get comparison i
+  res <- results(dds, contrast = current_comparison) # get results for time comparison i using 'contrast'
+  if (is.null(res)) {
+      warning(paste("Could not generate results for contrast:", contrast_name))
+      next}
+  # Temporary df to store the results for comparison i
+  tmp_res_df <- res %>% 
+    as.data.frame() %>%
+    rownames_to_column("gene_id") %>%
+    merge(g2s, by = "gene_id", all.x = TRUE) %>% 
+    mutate(result_name = i) 
+  # Add the temporary df to the main results df
+  results <- bind_rows(results, tmp_res_df)
+}
+```
+
+
+### Filtering and visualization
+```{r filtering results}
+# Filter based on p-value < 0.05 and log2 fold change > 1
+filtered_results <- results %>%
+  filter(padj < P_VALUE_FILTER, abs(log2FoldChange) > LOG2_FOLD_FILTER)
+
+# Get all gene names that are significant (drop gene name repetitions)
+filtered_genes <- as.data.frame(filtered_results$gene_name, collapse = "\n")
+filtered_genes <- unique(filtered_genes)
+colnames(filtered_genes)[1] <- "gene_name"
+
+# Now let's write this out and do gene enrichment analysis
+write.table(filtered_genes["gene_name"], row.names = FALSE, col.names = FALSE, "results/filtered_genes.csv")
+
+save(results, filtered_results, filtered_genes, file = "results/DESeq2_results.RData")
+
+# May wanna take a look at these genes. Start at: https://maayanlab.cloud/Enrichr/
+```
+
+```{r filtered results distributions}
+
+# Distribution of baseMean, lfcSE, p-values and fold change
+#hist(filtered_results$baseMean, xlim = c(0, 10000), breaks = 500) # May remove this plot
+#hist(filtered_results$lfcSE, xlim = c(0,5), breaks = 100) # May remove this histogram as well
+hist(filtered_results$padj, xlim = c(0,P_VALUE_FILTER ), breaks = 50)
+hist(filtered_results$log2FoldChange, xlim = c(-5, 5), breaks = 1000)
+
+# T-test comparing baseMean expression of all genes vs filtered genes
+basemean_all_genes <- median(results$baseMean)
+basemean_fil_genes <- median(filtered_results$baseMean)
+t.test(results$baseMean, filtered_results$baseMean)
+
+# Intersect by gene_name filtered results table and raw counts
+counts_filtered_genes <- counts_orig[filtered_results$gene_id,]
+# TODO delete repetitive instances of genes
+```
+
+### TPM analysis
+```{r, load tpm data and filter}
+# Read raw tpm data and delete gene name column
+tpm_orig  <- read.table(TPM_PATH, header=TRUE, row.names=1)
+tpm       <- tpm_orig %>% select(-gene_name)
+
+# Filter genes with no counts for any of the samples
+tpm_filtered <- tpm[rowSums(tpm) > FILTER_TRESHOLD, ]
+```
+
+```{r calculate avg and sd for tpms}
+# Loop to calculate avg and sd for replicates at a given time point
+time_points <- c("0", "12", "24", "48", "96")
+avg_and_sd_values <- list()
+for (tp in time_points) {
+  cols <- grep(paste0("WT_", tp, "_"), colnames(tpm_filtered))
+  avg  <- rowMeans(tpm_filtered[, cols])
+  sd   <- apply(tpm_filtered[, cols], 1, sd)
+  sd   <- data.frame(sd)
+  combined <- cbind(avg, sd)
+  avg_and_sd_values <- c(avg_and_sd_values, list(combined))
+}
+
+# Convert the list to a data frame and add column names for the respective timepoint
+avg_and_sd_values <- do.call(cbind,  avg_and_sd_values)
+colnames(avg_and_sd_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
+avg_and_sd_values <- as.data.frame(avg_and_sd_values) %>% rownames_to_column("gene_id") %>% merge(g2s)
+
+
+
+save(tpm_orig, tpm_filtered, avg_and_sd_values, file = "results/tpm_results.RData")
+```
+
+### Image analysis
+
+```{r}
+# Load data
+load("results/tpm_results.RData")
+load("results/DESeq2_results.RData")
+load("results/counts_files.RData")
+```
+
+###Heatmaps
+```{r}
+# (1) Pre analysis: Define clustering and distance methods for samples
+#First step is calculating distance between all samples.
+# Log-transform the TPM values. 
+log_tpm_matrix <- log2(tpm_filtered + 1)
+
+#Calculate how closely related each samples is to one another using the dist function
+distance_matrix <- dist(t(log_tpm_matrix), method = "euclidean")
+
+#Perform hierarchical clustering of each samples relationship using hclust
+hc_complete <- hclust(distance_matrix, method = "complete")
+
+#Plot the distance calculated in hclust!
+plot(hc_complete, labels = colnames(log_tpm_matrix), main = "Global TPM Filtered Dendrogram ", sub = "sample relationship by time and replicate after dox treatment")
+
+# Cut tree to limit the clusters 
+clusters <- cutree(hc_complete, k = 5)
+# Print out which sample is in which cluster
+print(clusters)
+
+# Making a dendrogram of hc_complete
+dend_hc_complete <- as.dendrogram(hc_complete)
+
+# Reorder the dendrogram based on the clusters created above
+dend_hc_complete <- reorder(dend_hc_complete, clusters)
+
+# Plot the reordered dendrogram
+plot(dend_hc_complete, main = "Global TPM Filtered Dendrogram (Ordered by Cluster)", sub = "Sample relationship by time and replicate after dox treatment")
+
+#(2) Using pheatmap to plot the heatmap of the significant genes
+
+# Add gene_names and select names from all genes list (g2s)
+log_tpm_matrix_gene_names <- log_tpm_matrix %>% rownames_to_column("gene_id") %>% merge(g2s)
+
+# Extract the only column from filtered_genes as a vector for easier manipulation
+filtered_genes_vector <- filtered_genes[[1]]
+
+# Filter to significant genes object called sig_log_tpm_matrix
+sig_log_tpm_matrix <- log_tpm_matrix_gene_names[log_tpm_matrix_gene_names$gene_name %in% filtered_genes_vector, ]
+
+# Remove all observations with missing data (NA)
+sig_log_tpm_matrix <- na.omit(sig_log_tpm_matrix)
+
+# calculate distances 
+#sig_distance_matrix <- dist(t(sig_log_tpm_matrix), method = "euclidean")
+#sum(is.na(sig_distance_matrix))
+
+# Remove non numeric data for plotting heatmap
+sig_log_tpm_matrix_numeric <- sig_log_tpm_matrix %>% select(-gene_id, -gene_name)
+
+# Setting custom clustering and distance functions
+custom_dist <- function(x) dist(x, method = "euclidian") 
+custom_hclust <- function(x) hclust(x, method = "ward.D2") 
+# Set the scale
+breaks <- seq(-2, 2, length.out = 51)
+
+# Plot heatmap for significant genes using custom clustering and distance methods, and breaks
+pheatmap(sig_log_tpm_matrix_numeric, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Log2-Transformed TPM Values",
+         distfun = custom_dist,
+         color = colorRampPalette(c("purple", "white", "yellow"))(50),
+         hclustfun = custom_hclust,
+         breaks = breaks
+)
+
+#Heatmap with all the genes from the log_tpm_matrix (large heatmap)
+pheatmap(log_tpm_matrix, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Log2-Transformed TPM Values",
+         color = colorRampPalette(c("purple", "white", "yellow"))(50),
+         distfun = custom_dist,   
+         hclustfun = custom_hclust 
+)
+
+save(log_tpm_matrix_gene_names, sig_log_tpm_matrix, sig_log_tpm_matrix_numeric, filtered_genes_vector, file = "results/heatmap_datasets.RData")
+```
+
+# RLOG Counts
+DESEQ2 does a great funciton of normalizing counts for a heatmap.
+This is called rlog counts. There is a bunch of information here:
+https://compbiocore.github.io/deseq-workshop-1/assets/deseq_workshop_1.html
+Let's do this so we have it in our tool kit !
+First, we need to load in our DDS from 0
+
+# Load DDS to perform Rlog count analysis
+
+```{r load dds for mouse long time course DESEQ2}
+
+load("results/dds.RData")
+# First Normalize counts (rlog) function in DESEQ2
+# This basically is rank counts normalized to std error in replicates.
+rlog_counts_mouse_long <- rlog(dds_time_point, blind = TRUE)
+
+# Now we retrieve the values using the "assay" function that converts to rlog_counts)
+rlog_counts_matrix_mouse_long <- assay(rlog_counts_mouse_long)
+# which(is.na(rlog_counts_mouse_long))
+
+breaks <- seq(-2, 2, length.out = 51)
+
+# Filter to sig genes
+sig_rlog_counts_matrix_mouse_long <- rlog_counts_matrix_mouse_long[rownames(rlog_counts_matrix_mouse_long) %in% unique_sig_genes, ]
+
+# Plotting heatmap
+pheatmap(sig_rlog_counts_matrix_mouse_long, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Sig genes Rlog-Transformed Values",
+         breaks = breaks,
+         color = colorRampPalette(c("blue", "white", "red"))(50) # Gradient from blue to red
+         )
+
+# now filter to sig genes
+sig_rlog_counts_matrix_mouse_long <- rlog_counts_matrix_mouse_long[rownames(rlog_counts_matrix_mouse_long) %in% unique_sig_genes, ]
+
+
+# Plot heap map of Rlog counts of sig genes
+pheatmap(sig_rlog_counts_matrix_mouse_long, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Rlog-Transformed Values" )
+
+# Now let's order again
+ordered_matrix <- sig_rlog_counts_matrix_mouse_long[, order(colnames(sig_rlog_counts_matrix_mouse_long))]
+
+# Create the heatmap with columns ordered by name
+pheatmap(ordered_matrix, 
+         cluster_rows = TRUE,  
+         cluster_cols = FALSE,  # Do not cluster columns, just order by name
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Sig genes Rlog-Transformed Values",
+         breaks = breaks,
+         color = colorRampPalette(c("blue", "white", "red"))(50) # Gradient from blue to red
+)
+
+# NICE !! We are heatmap pros now !!
+
+# Now we can write this out and START from here in the future.
+# create new folder 'rlog_count_matrices'
+write_rds(rlog_counts_matrix_mouse_long, "results/rlog_counts_all.rds")
+
+```
+
+
+## IGV Results
+![H19 gene track](results/IGV/h19_gene_track.png)
+This are the timepoint tracks for gene H19 using the GRCm38/mm10 genome
+
+## Future directions
+Pretty cool video on DESeq2 analysis:
+https://www.youtube.com/watch?v=NGbZmlGLG5w&t=264s
+
+Ideas of plots to include:
+- Circos plot
+  - Needs to know where the gene is located so need to use biomaRt to get data from ensembl and get the gene information (it looks a bit complicated)
+  - Will need to save a csv file with Gene ID, chromosome name, start position, end position + rows in results from DESeq2
+  - Plots can be made in Circa (easier) or through bash (harder)
