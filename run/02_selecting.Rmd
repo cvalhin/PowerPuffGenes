@@ -1,0 +1,142 @@
+---
+title: "PowerPuffGenes Report"
+authors: "FN, CV, LP"
+date: "2025-04-01"
+output:
+  html_document:
+    toc: true
+  pdf_document:
+    toc: true
+editor_options:
+  chunk_output_type: console
+---
+
+# Introduction
+- Provide some intro and background about the project.
+
+# Goals
+- Compare genes with transient vs prolonged changes in expression after dox induction.
+
+# Gene Classification: Transient vs Prolonged
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
+# library imports
+library(IRanges)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(readr)
+library(ggplot2)
+library(purrr)
+library(magrittr)
+library(pheatmap)
+library(textshape)
+library(Rcpp)
+library(matrixStats)
+library(rtracklayer)
+library(tidyverse)
+library(DESeq2)
+library(broom)
+library(reshape)
+```
+
+## Load data
+```{r loading our RNAseq analysis data COUNTS & TPM}
+load("../results/DESeq2_results.RData")
+load("../results/tpm_results.RData")
+```
+
+## Gene curation
+```{r assign group of genes to transient or prolonged}
+filtered_vs_zero <- filtered_results[grep("vs_0", filtered_results$comparison), ]
+
+# filter genes that are significantly changed at any time point and end time point (prolonged)
+prolonged_res <- filtered_vs_zero %>% group_by(gene_id) %>% filter(n()>1)
+prolonged_genes <- prolonged_res[grep("96_vs", prolonged_res$comparison),
+                                 which(names(prolonged_res)=="gene_name")]
+prolonged_res_results <- merge(filtered_vs_zero, prolonged_genes)
+
+# group prolonged genes by their triggering time points
+change_at_12 <- prolonged_res_results[grep("12_vs", prolonged_res_results$comparison),
+                                      which(names(prolonged_res_results)=="gene_name")]
+change_at_24 <- prolonged_res_results[grep("24_vs", prolonged_res_results$comparison),
+                                      which(names(prolonged_res_results)=="gene_name")]
+change_at_48 <- prolonged_res_results[grep("48_vs", prolonged_res_results$comparison),
+                                      which(names(prolonged_res_results)=="gene_name")]
+change_at_12_to_end <- Reduce(intersect, list(change_at_12,change_at_24,change_at_48))
+change_at_24_to_end <- intersect(change_at_24,change_at_48)
+change_at_24_to_end <- change_at_24_to_end[!(change_at_24_to_end %in% change_at_12_to_end)]
+change_at_48_to_end <- change_at_48[!(change_at_48 %in% change_at_12_to_end) & 
+                                    !(change_at_48 %in% change_at_24_to_end)]
+
+# filter genes that are significantly changed at one time point (transient)
+transient_genes <- filtered_vs_zero[!(filtered_vs_zero$gene_name %in% prolonged_genes$gene_name),
+                                    which(names(filtered_vs_zero)=="gene_name")]
+# Note: All transient genes are changed only at a particular time point (i.e., spike).
+save(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end, transient_genes,
+     file="../results/gene_groups.RData")
+```
+
+## LFC plot
+```{r lfc versus time plot}
+# set of genes which prolonged change in the expression after 12 hours until the end.
+genes_of_interest <- data.frame(gene_name = change_at_12_to_end)
+
+# prepare lfc for plotting genes of interest
+df_lfc_plot <- filtered_vs_zero[filtered_vs_zero$gene_name %in% genes_of_interest$gene_name, ]
+df_lfc_plot$Time <- do.call(rbind, stringr::str_split(df_lfc_plot$comparison, '_'))[,2]
+df_lfc_plot$Time <- as.numeric(df_lfc_plot$Time)
+df_lfc_plot <- df_lfc_plot %>%
+  arrange(gene_name, Time)
+
+# plotting the LFC versus time
+ggplot(df_lfc_plot, aes(x = Time, y = log2FoldChange, group = gene_name)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ gene_name, scales = "free_y") +  # Facet by gene
+  labs(title = "Log2 Fold Change Over Time",
+       x = "Time Point (hours)",
+       y = "log2 Fold Change")
+```
+
+## TPM plot
+```{r TPM for DESeq2 filtered genes}
+sig_gene <- as.data.frame(unique(filtered_results$gene_id))
+names(sig_gene) <- "gene_id"
+
+# subset the data frame of avg / sd TPM values
+sig_gene_tpm <- inner_join(avg_and_sd_values, sig_gene, by = "gene_id")
+sig_gene_tpm <- merge(sig_gene_tpm, g2s)
+```
+
+```{r TPM plot for genes of interest}
+# prepare TPM data for plotting genes of interest
+df_plot_genes <- merge(sig_gene_tpm, genes_of_interest)
+
+time_avg_values <- names(df_plot_genes)[grep("avg", names(df_plot_genes))]
+df_plot_genes_avg <- melt(df_plot_genes, measure.vars = time_avg_values, value_name = "gene_id")
+df_plot_genes_avg$Time <- do.call(rbind, stringr::str_split(df_plot_genes_avg$variable, '_avg'))[,1]
+df_plot_genes_avg$Time <- as.numeric(df_plot_genes_avg$Time)
+colnames(df_plot_genes_avg)[which(colnames(df_plot_genes_avg) == 'value')] <- 'avg'
+df_plot_genes_avg <- df_plot_genes_avg %>% select("gene_name", "Time", "avg")
+
+time_sd_values <- names(df_plot_genes)[grep("sd", names(df_plot_genes))]
+df_plot_genes_sd <- melt(df_plot_genes, measure.vars = time_sd_values, value_name = "gene_id")
+df_plot_genes_sd$Time <- do.call(rbind, stringr::str_split(df_plot_genes_sd$variable, '_sd'))[,1]
+df_plot_genes_sd$Time <- as.numeric(df_plot_genes_sd$Time)
+colnames(df_plot_genes_sd)[which(colnames(df_plot_genes_sd) == 'value')] <- 'sd'
+df_plot_genes_sd <- df_plot_genes_sd %>% select("gene_name", "Time", "sd")
+
+df_plot_genes_avg_sd <- merge(df_plot_genes_avg, df_plot_genes_sd, by = c("gene_name", "Time"))
+
+# TODO: integrate SD to the plot
+ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
+  geom_line() +
+  geom_point() +
+  labs(x = 'Time (hours)', y = 'Average TPM') +
+  ggtitle('Average TPM across Time Points') +
+  facet_wrap(~ gene_name, scales = "free_y")
+```
+
+
