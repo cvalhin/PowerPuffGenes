@@ -12,10 +12,10 @@ editor_options:
 ---
 
 # Introduction
-- Provide some intro and background about the project.
+Gene expression changes in response to stimuli can be broadly categorized as transient or prolonged. Transient changes are short-lived and may reflect immediate cellular responses such as signaling events or stress adaptation. In contrast, prolonged changes suggest stable regulatory shifts that may contribute to long-term cellular adaptations. Understanding these patterns can provide insight into gene regulatory mechanisms and cellular dynamics.
 
 # Goals
-- Compare genes with transient vs prolonged changes in expression after dox induction.
+- To classify genes exhibiting transient versus prolonged changes in expression after doxycycline (dox) induction.
 
 # Gene Classification: Transient vs Prolonged
 
@@ -47,173 +47,222 @@ load("../results/DESeq2_results.RData")
 load("../results/tpm_results.RData")
 ```
 
-## Gene curation
+## Data curation
 ```{r assign group of genes to transient or prolonged}
+# Filter rows where the comparison column contains "vs_0"
 filtered_vs_zero <- filtered_results[grep("vs_0", filtered_results$comparison), ]
 
-# filter genes that are significantly changed at any time point and end time point (prolonged)
-prolonged_res <- filtered_vs_zero %>% group_by(gene_id) %>% filter(n()>1)
+# Identify genes with significant changes at multiple time points (prolonged changes)
+# Group by gene_id and filter genes that appear in more than one time point
+prolonged_res <- filtered_vs_zero %>% group_by(gene_id) %>% filter(n() > 1)
+
+# Extract gene names for prolonged genes specifically at time points containing "96_vs"
 prolonged_genes <- prolonged_res[grep("96_vs", prolonged_res$comparison),
-                                 which(names(prolonged_res)=="gene_name")]
+                                 which(names(prolonged_res) == "gene_name")]
+
+# Merge the prolonged genes with the original filtered data to get detailed results
 prolonged_res_results <- merge(filtered_vs_zero, prolonged_genes)
 
-# group prolonged genes by their triggering time points
+# Group prolonged genes by the specific time points where changes occur
+
+# Identify genes with changes at time point "12_vs"
 change_at_12 <- prolonged_res_results[grep("12_vs", prolonged_res_results$comparison),
-                                      which(names(prolonged_res_results)=="gene_name")]
+                                      which(names(prolonged_res_results) == "gene_name")]
+
+# Identify genes with changes at time point "24_vs"
 change_at_24 <- prolonged_res_results[grep("24_vs", prolonged_res_results$comparison),
-                                      which(names(prolonged_res_results)=="gene_name")]
+                                      which(names(prolonged_res_results) == "gene_name")]
+
+# Identify genes with changes at time point "48_vs"
 change_at_48 <- prolonged_res_results[grep("48_vs", prolonged_res_results$comparison),
-                                      which(names(prolonged_res_results)=="gene_name")]
-change_at_12_to_end <- Reduce(intersect, list(change_at_12,change_at_24,change_at_48))
-change_at_24_to_end <- intersect(change_at_24,change_at_48)
+                                      which(names(prolonged_res_results) == "gene_name")]
+
+# Find genes that show consistent changes from 12 hours to the end (12, 24, and 48 hours)
+change_at_12_to_end <- Reduce(intersect, list(change_at_12, change_at_24, change_at_48))
+
+# Find genes that show consistent changes from 24 hours to the end (24 and 48 hours),
+# excluding those already in the 12-to-end group
+change_at_24_to_end <- intersect(change_at_24, change_at_48)
 change_at_24_to_end <- change_at_24_to_end[!(change_at_24_to_end %in% change_at_12_to_end)]
+
+# Find genes that show changes only at 48 hours, excluding those in previous groups
 change_at_48_to_end <- change_at_48[!(change_at_48 %in% change_at_12_to_end) & 
                                     !(change_at_48 %in% change_at_24_to_end)]
 
-# filter genes that are significantly changed at one time point (transient)
+# Identify genes with significant changes at a single time point (transient changes)
 transient_genes <- filtered_vs_zero[!(filtered_vs_zero$gene_name %in% prolonged_genes$gene_name),
-                                    which(names(filtered_vs_zero)=="gene_name")]
-# Note: All transient genes are changed only at a particular time point (i.e., spike).
+                                    which(names(filtered_vs_zero) == "gene_name")]
+# Note: Transient genes are those that exhibit a spike in expression only at one specific time point.
+# Save the identified gene groups into an RData file for later use
 save(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end, transient_genes,
-     file="../results/gene_groups.RData")
+     file = "../results/gene_groups.RData")
+
+# Create a data frame of genes with prolonged changes in expression, including the time point where changes start
+genes_of_interest <- data.frame(
+  gene_name = c(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end),  # Combine all groups
+  change_from = c(rep("12", length(change_at_12_to_end)),  # Label genes starting from 12 hours
+                  rep("24", length(change_at_24_to_end)),  # Label genes starting from 24 hours
+                  rep("48", length(change_at_48_to_end)))  # Label genes starting from 48 hours
+)
+# Save to csv file
+write_csv(genes_of_interest, "../results/prolonged_gene_list.csv")
 ```
 
-## LFC plot
+## Data visualization
+### LFC plot
 ```{r lfc versus time plot}
-# set of genes which prolonged change in the expression after 12 hours until the end.
-genes_of_interest <- data.frame(
-  gene_name = c(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end),
-  change_from = c(rep("12", length(change_at_12_to_end)),
-            rep("24", length(change_at_24_to_end)),
-            rep("48", length(change_at_48_to_end)))
-)
+# Merge the main results with the genes of interest to extract relevant data for plotting
+res_df <- merge(results, genes_of_interest)
 
-res_df = merge(results, genes_of_interest)
-
+# Filter comparisons against the baseline ("_vs_0") for time 0 data
 df_time0 <- res_df %>% filter(grepl("_vs_0$", comparison))
-df_intermediate <- res_df %>% filter(!grepl("_vs_0$", comparison))
 
+# Extract the time (in hours) from the comparison column for time 0 data
 df_time0 <- df_time0 %>%
   mutate(Time = as.numeric(gsub("time_([0-9]+)_vs_0", "\\1", comparison)))
 
-df_intermediate <- df_intermediate %>%
-  mutate(Time1 = as.numeric(gsub("time_([0-9]+)_vs_([0-9]+)", "\\1", comparison)),
-         Time2 = as.numeric(gsub("time_([0-9]+)_vs_([0-9]+)", "\\2", comparison)))
+# Filter out intermediate comparisons (not against baseline)
+df_intermediate <- res_df %>% filter(!grepl("_vs_0$", comparison))
 
+# Extract time points (Time1 and Time2) from the comparison column for intermediate data
+df_intermediate <- df_intermediate %>%
+  mutate(Time1 = as.numeric(gsub("time_([0-9]+)_vs_([0-9]+)", "\\1", comparison)),  # Start time
+         Time2 = as.numeric(gsub("time_([0-9]+)_vs_([0-9]+)", "\\2", comparison)))  # End time
+
+# Assign an offset index to stagger significance markers for each gene
 df_intermediate <- df_intermediate %>%
   group_by(gene_name) %>%
-  mutate(Offset_Index = row_number() - 1) %>%
+  mutate(Offset_Index = row_number() - 1) %>%  # Create an index for each row
   ungroup()
 
-# Calculate y-axis limits for each gene
+# Calculate y-axis limits for each gene to ensure proper scaling and padding in plots
 y_axis_limits <- res_df %>%
   group_by(gene_name) %>%
   summarize(
-    min_log2FC = min(log2FoldChange, na.rm = TRUE),
-    max_log2FC = max(log2FoldChange, na.rm = TRUE),
-    y_axis_limit = max_log2FC + (max_log2FC - min_log2FC) * 0.05  # Add 10% padding
+    min_log2FC = min(log2FoldChange, na.rm = TRUE),  # Minimum log2FoldChange value
+    max_log2FC = max(log2FoldChange, na.rm = TRUE),  # Maximum log2FoldChange value
+    y_axis_limit = max_log2FC + (max_log2FC - min_log2FC) * 0.05  # Add padding (5%)
   )
 
+# Add y-axis limits and calculate positions for significance markers in intermediate data
 df_intermediate <- df_intermediate %>%
-  left_join(y_axis_limits, by = "gene_name") %>%
+  left_join(y_axis_limits, by = "gene_name") %>%  # Join y-axis limits with intermediate data
   mutate(
-    #Offset_Index = row_number(),  # Assign each comparison a unique index
-    Y_Pos = y_axis_limit + (Offset_Index * 0.3)  # Stagger p-value markers above max limit
+    Y_Pos = y_axis_limit + (Offset_Index * 0.3)  # Stagger significance markers above the max limit
   )
 
-# Define significance levels for p-value markers
+# Define significance levels based on p-values and create labels for markers (***, **, *)
 df_intermediate <- df_intermediate %>%
   mutate(Significance = case_when(
-    pvalue < 0.001 ~ "***",
-    pvalue < 0.01  ~ "**",
-    pvalue < 0.05  ~ "*",
-    TRUE ~ ""
+    pvalue < 0.001 ~ "***",   # Highly significant
+    pvalue < 0.01 ~ "**",     # Significant
+    pvalue < 0.05 ~ "*",      # Marginally significant
+    TRUE ~ ""                 # Not significant
   ))
 
-# Create the plot with facets for each gene
+# Create a ggplot visualization with facets for each gene
 ggplot() +
-  # Plot log2FoldChange for time 0 comparisons
+  
+  # Plot log2FoldChange values for baseline comparisons (time vs. baseline)
   geom_point(data = df_time0, aes(x = Time, y = log2FoldChange, color = padj < 0.05), size = 1.5) +
+  
+  # Add lines connecting points for baseline comparisons within each gene
   geom_line(data = df_time0, aes(x = Time, y = log2FoldChange, group = gene_name)) +
   
-  # Add p-value markers as separate, non-linking lines (for all comparisons)
+  # Add horizontal segments for p-value markers in intermediate comparisons (significant only)
   geom_segment(data = df_intermediate %>% filter(Significance != ""), 
                aes(x = Time1, xend = Time2, 
                    y = Y_Pos, yend = Y_Pos), 
                color = "black", size = 0.5) +
 
-  # Add significance markers (***, **, *) only for significant comparisons
+  # Add significance labels (***, **, *) at the midpoint of each segment
   geom_text(data = df_intermediate %>% filter(Significance != ""), 
             aes(x = (Time1 + Time2) / 2, y = Y_Pos + 0.025, label = Significance), 
             size = 4, color = "black") +
 
-  # Facet each gene into separate plots
+  # Facet wrap: Separate plots for each gene with independent scales ("free")
   facet_wrap(~gene_name, scales = "free") +
-  coord_cartesian() +
 
-  # Customize x-axis ticks to show only specific time points
+  # Customize x-axis ticks to display specific time points of interest (12, 24, etc.)
   scale_x_continuous(breaks = c(12, 24, 48, 96), labels = c("12", "24", "48", "96")) +
   
-  # Labels and formatting
+  # Add titles and axis labels with clear formatting
   labs(title = "Genes regulated by dox over time",
        caption = "*: p < 0.05\n**: p < 0.01\n***: p < 0.001",
        x = "Time after dox induction (hours)",
        y = "log2fold change",
-       color = "Significant (padj < 0.05)\ncompared to the zero timepoint") +
-  theme_minimal() +
-  theme(
-    panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(),
-    panel.background = element_blank(),
-    panel.border = element_rect(color = "black", fill = NA, size = 1)
-  )
+       color = "Significant (padj < 0.05)\nto -dox control") +
+  
+   # Apply a minimal theme with customizations for clarity and aesthetics
+   theme_minimal() +
+   theme(
+     panel.grid.major = element_blank(), 
+     panel.grid.minor = element_blank(),
+     panel.background = element_rect(fill = 'white', colour = 'white'),
+     panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+   )
+
+# Save the plot as a high-resolution PNG file in the results directory
 ggsave("../results/lfc_prolonged_genes.png", width = 20, height = 12, dpi = 500)
 ```
 
-## TPM plot
+### TPM plot
 ```{r TPM for genes of interest}
-sig_gene <- as.data.frame(unique(filtered_results$gene_id))
-names(sig_gene) <- "gene_id"
+# Extract unique gene IDs from the filtered results and create a data frame
+sig_gene <- as.data.frame(unique(filtered_results$gene_id))  # Get unique gene IDs
+names(sig_gene) <- "gene_id"  # Rename the column to "gene_id"
 
-# subset the data frame of avg / sd TPM values
-sig_gene_tpm <- inner_join(avg_and_sd_values, sig_gene, by = "gene_id")
-sig_gene_tpm <- merge(sig_gene_tpm, g2s)
+# Subset the data frame containing average and standard deviation (SD) TPM values
+sig_gene_tpm <- inner_join(avg_and_sd_values, sig_gene, by = "gene_id")  # Join with average/SD values
+sig_gene_tpm <- merge(sig_gene_tpm, g2s)  # Merge with gene-to-symbol mapping (g2s)
 
-# prepare TPM data for plotting genes of interest
+# Prepare TPM data for plotting genes of interest by merging with genes of interest
 df_plot_genes <- merge(sig_gene_tpm, genes_of_interest)
 
+# Extract column names corresponding to average TPM values
 time_avg_values <- names(df_plot_genes)[grep("avg", names(df_plot_genes))]
+
+# Reshape the data to long format for average TPM values
 df_plot_genes_avg <- melt(df_plot_genes, measure.vars = time_avg_values, value_name = "gene_id")
-df_plot_genes_avg$Time <- do.call(rbind, stringr::str_split(df_plot_genes_avg$variable, '_avg'))[,1]
-df_plot_genes_avg$Time <- as.numeric(df_plot_genes_avg$Time)
-colnames(df_plot_genes_avg)[which(colnames(df_plot_genes_avg) == 'value')] <- 'avg'
-df_plot_genes_avg <- df_plot_genes_avg %>% select("gene_name", "Time", "avg")
+df_plot_genes_avg$Time <- do.call(rbind, stringr::str_split(df_plot_genes_avg$variable, '_avg'))[,1]  # Extract time
+df_plot_genes_avg$Time <- as.numeric(df_plot_genes_avg$Time)  # Convert time to numeric
+colnames(df_plot_genes_avg)[which(colnames(df_plot_genes_avg) == 'value')] <- 'avg'  # Rename value column to 'avg'
+df_plot_genes_avg <- df_plot_genes_avg %>% select("gene_name", "Time", "avg")  # Select relevant columns
 
+# Extract column names corresponding to SD TPM values
 time_sd_values <- names(df_plot_genes)[grep("sd", names(df_plot_genes))]
-df_plot_genes_sd <- melt(df_plot_genes, measure.vars = time_sd_values, value_name = "gene_id")
-df_plot_genes_sd$Time <- do.call(rbind, stringr::str_split(df_plot_genes_sd$variable, '_sd'))[,1]
-df_plot_genes_sd$Time <- as.numeric(df_plot_genes_sd$Time)
-colnames(df_plot_genes_sd)[which(colnames(df_plot_genes_sd) == 'value')] <- 'sd'
-df_plot_genes_sd <- df_plot_genes_sd %>% select("gene_name", "Time", "sd")
 
+# Reshape the data to long format for SD TPM values
+df_plot_genes_sd <- melt(df_plot_genes, measure.vars = time_sd_values, value_name = "gene_id")
+df_plot_genes_sd$Time <- do.call(rbind, stringr::str_split(df_plot_genes_sd$variable, '_sd'))[,1]  # Extract time
+df_plot_genes_sd$Time <- as.numeric(df_plot_genes_sd$Time)  # Convert time to numeric
+colnames(df_plot_genes_sd)[which(colnames(df_plot_genes_sd) == 'value')] <- 'sd'  # Rename value column to 'sd'
+df_plot_genes_sd <- df_plot_genes_sd %>% select("gene_name", "Time", "sd")  # Select relevant columns
+
+# Merge average and SD data frames on gene_name and Time
 df_plot_genes_avg_sd <- merge(df_plot_genes_avg, df_plot_genes_sd, by = c("gene_name", "Time"))
 
+# Create a ggplot visualization for TPM values across time points
 ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
-  geom_line() +
-  geom_point(size=1) +
-  geom_errorbar(aes(ymin = avg-sd, ymax = avg+sd), width = 3, size = 0.5) +
-  labs(x = 'Time after dox induction (hours)', y = 'Average TPM') +
-  ggtitle('Average TPM across Time Points') +
-  facet_wrap(~ gene_name, scales = "free") +
-  # Customize x-axis ticks to show only specific time points
+  geom_line() +  # Add lines connecting average TPM values for each gene over time
+  geom_point(size=1) +  # Add points at each time point
+  geom_errorbar(aes(ymin = avg-sd, ymax = avg+sd), width = 3, size = 0.5) +  # Add error bars using SD
+  labs(x = 'Time after dox induction (hours)', y = 'Average TPM') +  # Label axes
+  ggtitle('Average TPM across Time Points') +  # Add a title to the plot
+  facet_wrap(~ gene_name, scales = "free") +  # Create separate plots for each gene with independent scales
+  
+  # Customize x-axis ticks to show specific time points of interest
   scale_x_continuous(breaks = c(0, 12, 24, 48, 96), labels = c("0", "12", "24", "48", "96")) +
-  theme_minimal() +
+  
+  theme_minimal() +  # Use a minimal theme for clean visuals
   theme(
     panel.grid.major = element_blank(), 
     panel.grid.minor = element_blank(),
-    panel.background = element_blank(), 
+    panel.background = element_rect(fill = 'white', colour = 'white'),
     panel.border = element_rect(color = "black", fill = NA, size = 1)
     )
+
+# Save the plot as a high-resolution PNG file in the results directory
 ggsave("../results/tpm_prolonged_genes.png", width = 20, height = 12, dpi = 500)
 ```
 
