@@ -1,0 +1,425 @@
+---
+title: "PowerPuffGenes Report"
+authors: "FN, CV, LP"
+date: "2025-03-17"
+output:
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+editor_options:
+  chunk_output_type: console
+---
+
+# Introduction
+- Biological background about the project. If pertinent, break into subsections (Use ##)
+
+# Goals or Overview
+- Could be mentioned in the introduction instead. Describe what we want we want to achieve:
+  - General analysis of gene expression. Consider repeating the analysis from class but normalizing based on time 0.
+  - Compare genes with transient vs prolonged changes in expression after dox induction.
+  - Compare nextflow versions (3.14 and 3.18) and different runs for 3.14 (rep1 and rep2) results.
+
+# RNA sequence analysis
+## NF-core rnaseq pipeline
+- May wanna explain the overview of the pipeline, acknowledge nfcore and nextflow, and include their image or link
+- Explain briefly STAR, RSEM, HISAT2 or Salmon
+- Input/Output files and what each of them mean (specially the output files)
+
+# Differential Expression Analysis
+
+## Proccesing and analysis of count and tpm data
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
+library(IRanges)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(readr)
+library(ggplot2)
+library(purrr)
+library(magrittr)
+library(pheatmap)
+library(textshape)
+library(Rcpp)
+library(matrixStats)
+library(rtracklayer)
+library(tidyverse)
+library(DESeq2)
+library(broom)
+library(reshape)
+```
+
+### Parameters and paths definition
+```{r define variables and paths}
+COUNTS_PATH      <- "data/NF3-18/salmon.merged.gene_counts.tsv"
+TPM_PATH         <- "data/NF3-18/salmon.merged.gene_tpm.tsv"
+FILTER_TRESHOLD  <- 0
+P_VALUE_FILTER   <- 0.05
+LOG2_FOLD_FILTER <- 1
+```
+
+### Loading and preproccesing count and tpm files
+```{r pre-proccess counts and tpm files}
+# Read raw data and make dictionary mapping gene id with gene name
+counts_orig  <- read.table(COUNTS_PATH, header=TRUE, row.names=1)
+tpm_orig     <- read.table(TPM_PATH, header=TRUE, row.names=1)
+g2s          <- data.frame(gene_id = rownames(counts_orig), 
+                           gene_name = counts_orig[ , 1]) 
+write.csv(g2s, "results/g2s.csv")
+
+# Remove gene name column from counts and convert counts to numerical rounded matrix
+counts           <- counts_orig %>% select(-gene_name)
+tpm              <- tpm_orig %>% select(-gene_name)
+counts_matrix    <- as.matrix(counts) 
+counts_matrix    <- round(counts_matrix)
+
+# Filter genes with no counts for any of the samples
+counts_filtered  <- counts_matrix[rowSums(counts_matrix) > FILTER_TRESHOLD, ]
+tpm_filtered     <- tpm[rowSums(tpm) > FILTER_TRESHOLD, ]
+
+
+save(counts, tpm, counts_filtered, tpm_filtered, g2s, file = "results/logs/data_files.RData")
+```
+
+### DESeq2 analysis for counts
+```{r make DESEQ2 metadata file and run DESEQ2 }
+# Make a column from the titles of the columns of the counts_matrix table
+deseq_samples  <- data.frame(sample_id = colnames(counts))
+
+# Get the time and replicate values from the sample names in deseq_samples
+split_values     <- strsplit(deseq_samples$sample_id, "_")
+time_values      <- sapply(split_values, function(x) x[[2]])
+replicate_values <- sapply(split_values, function(x) x[[3]])
+
+# Add time and replicate values as columns to deseq_samples and factor them
+deseq_samples$time_point <- time_values
+deseq_samples$replicate  <- replicate_values
+deseq_samples$time_point <- factor(deseq_samples$time_point, levels=c("0","12","24","48","96"))
+deseq_samples$replicate  <- factor(deseq_samples$replicate)
+
+# Testing whether sample sheet and counts are arranged properly 
+stopifnot(all(colnames(counts) == rownames(deseq_samples$sample_id)))
+
+# Prepare DESeq dataset and run DESea2
+dds <- DESeqDataSetFromMatrix(countData = counts_filtered,
+                              colData = deseq_samples,
+                              design = ~ time_point) 
+dds <- DESeq(dds)
+```
+
+### Obtaining and filtering count results
+```{r obtain count results for all comparisons and filter}
+# Define the comparisons
+comparison_list <- list(
+  # Time points against baseline
+  time_12_vs_0 = c("time_point", "12", "0"),
+  time_24_vs_0 = c("time_point", "24", "0"),
+  time_48_vs_0 = c("time_point", "48", "0"),
+  time_96_vs_0 = c("time_point", "96", "0"),
+  # Time series comparisons
+  time_24_vs_12 = c("time_point", "24", "12"),
+  time_48_vs_24 = c("time_point", "48", "24"),
+  time_96_vs_48 = c("time_point", "96", "48")
+)
+
+# Create empty df to store results values (schema looks good)
+results <- data.frame("gene_id" = character(),
+                      "baseMean" = numeric(),
+                      "log2FoldChange" = numeric(),
+                      "lfcSE" = numeric(),
+                      "stat" = numeric(),
+                      "pvalue" = numeric(),
+                      "padj" = numeric(),
+                      "gene_name" = character(),
+                      "comparison" = character())
+
+# Loop through the defined contrasts
+for(i in names(comparison_list)) {
+  current_comparison <- comparison_list[[i]] # get comparison i
+  res <- results(dds, contrast = current_comparison) # get results for time comparison i using 'contrast'
+  if (is.null(res)) {
+      warning(paste("Could not generate results for contrast:", contrast_name))
+      next}
+  # Temporary df to store the results for comparison i
+  tmp_res_df <- res %>% 
+    as.data.frame() %>%
+    rownames_to_column("gene_id") %>%
+    merge(g2s, by = "gene_id", all.x = TRUE) %>% 
+    mutate(comparison = i) 
+  # Add the temporary df to the main results df
+  results <- bind_rows(results, tmp_res_df)
+}
+
+# Filter based on p-value < 0.05 and log2 fold change > 1
+filtered_results <- results %>%
+  filter(padj < P_VALUE_FILTER, abs(log2FoldChange) > LOG2_FOLD_FILTER)
+
+# Get all gene names that are significant (drop gene name repetitions)
+filtered_genes <- as.data.frame(filtered_results$gene_name, collapse = "\n")
+filtered_genes <- unique(filtered_genes)
+colnames(filtered_genes)[1] <- "gene_name"
+
+# Now let's write this out and do gene enrichment analysis
+write.table(filtered_genes["gene_name"], row.names = FALSE, col.names = FALSE, "results/filtered_genes.csv")
+
+save(results, filtered_results, filtered_genes, file = "results/logs/results_counts.RData")
+# May wanna take a look at these genes. Start at: https://maayanlab.cloud/Enrichr/
+```
+
+### Obtaining tmp results
+```{r calculate avg and sd for tpms}
+# Loop to calculate avg and sd for replicates at a given time point
+time_points <- c("0", "12", "24", "48", "96")
+avg_and_sd_values <- list()
+for (tp in time_points) {
+  cols     <- grep(paste0("WT_", tp, "_"), colnames(tpm_filtered))
+  avg      <- rowMeans(tpm_filtered[, cols])
+  sd       <- apply(tpm_filtered[, cols], 1, sd)
+  sd       <- data.frame(sd)
+  combined <- cbind(avg, sd)
+  avg_and_sd_values <- c(avg_and_sd_values, list(combined))
+}
+
+# Convert the list to a data frame and add column names for the respective timepoint
+avg_and_sd_values           <- do.call(cbind,  avg_and_sd_values)
+colnames(avg_and_sd_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
+avg_and_sd_values           <- as.data.frame(avg_and_sd_values) %>% rownames_to_column("gene_id") %>% merge(g2s)
+
+save(avg_and_sd_values, file = "results/logs/results_tpm.RData" )
+```
+
+### Distribution of count results
+```{r filtered counts statistics distributions}
+#load("results/logs/results_counts.RData")
+#load("results/logs/results_tpm.RData")
+#load("results/logs/data_files.RData")
+
+par(mfrow = c(2, 2))
+# Base Mean histogram
+hist(filtered_results$baseMean, 
+     main = "Base Mean", 
+     xlab = "Base Mean", 
+     xlim = c(0, 500), 
+     breaks = 500, 
+     col = "blue", 
+     border = "white")
+# lfcSE histogram
+hist(filtered_results$lfcSE, 
+     main = "lfcSE", 
+     xlab = "lfcSE", 
+     xlim = c(0, 2), 
+     breaks = 100, 
+     col = "green", 
+     border = "white")
+# Adjusted p-value histogram
+hist(filtered_results$padj, 
+     main = "Adjusted P-value", 
+     xlab = "padj", 
+     xlim = c(0, P_VALUE_FILTER), 
+     breaks = 50, 
+     col = "red", 
+     border = "white")
+# Log2 Fold Change histogram
+hist(filtered_results$log2FoldChange, 
+     main = "Log2 Fold Change", 
+     xlab = "log2FoldChange", 
+     xlim = c(-5, 5), 
+     breaks = 1000, 
+     col = "yellow", 
+     border = "white")
+
+# T-test comparing baseMean expression of all genes vs filtered genes
+basemean_all_genes <- median(results$baseMean)
+basemean_fil_genes <- median(filtered_results$baseMean)
+t.test(results$baseMean, filtered_results$baseMean)
+
+# Intersect by gene_name filtered results table and raw counts
+counts_filtered_genes <- counts_orig[filtered_results$gene_id,]
+# TODO delete repetitive instances of genes
+```
+
+### Distribution of tpm results
+```{r facet all timepoint TPM distributions}
+# Make a distribution of TPM values in each time point - using facet-wrap
+time_values <- names(avg_and_sd_values)[grep("avg", names(avg_and_sd_values))]
+melt_tpm_df <- melt(avg_and_sd_values, measure.vars = time_values, value_name = "gene_id")
+ggplot(melt_tpm_df, aes(x = value)) +
+  geom_histogram(bins = 50) +
+  facet_wrap(~ variable, scales = "free_x")+
+  xlim(0,1000) +
+  ylim(0,1000) +
+  theme("paperwhite")
+```
+
+
+# First adventure
+## Gene curation
+```{r assign group of genes to transient or prolonged}
+filtered_vs_zero <- filtered_results[grep("vs_0", filtered_results$comparison), ]
+
+# filter genes that are significantly changed at any time point and end time point (prolonged)
+prolonged_res <- filtered_vs_zero %>% group_by(gene_id) %>% filter(n()>1)
+prolonged_genes <- prolonged_res[grep("96_vs", prolonged_res$comparison),
+                                 which(names(prolonged_res)=="gene_name")]
+prolonged_res_results <- merge(filtered_vs_zero, prolonged_genes)
+
+# group prolonged genes by their triggering time points
+change_at_12 <- prolonged_res_results[grep("12_vs", prolonged_res_results$comparison),
+                                      which(names(prolonged_res_results)=="gene_name")]
+change_at_24 <- prolonged_res_results[grep("24_vs", prolonged_res_results$comparison),
+                                      which(names(prolonged_res_results)=="gene_name")]
+change_at_48 <- prolonged_res_results[grep("48_vs", prolonged_res_results$comparison),
+                                      which(names(prolonged_res_results)=="gene_name")]
+change_at_12_to_end <- Reduce(intersect, list(change_at_12,change_at_24,change_at_48))
+change_at_24_to_end <- intersect(change_at_24,change_at_48)
+change_at_24_to_end <- change_at_24_to_end[!(change_at_24_to_end %in% change_at_12_to_end)]
+change_at_48_to_end <- change_at_48[!(change_at_48 %in% change_at_12_to_end) & 
+                                    !(change_at_48 %in% change_at_24_to_end)]
+
+# filter genes that are significantly changed at one time point (transient)
+transient_genes <- filtered_vs_zero[!(filtered_vs_zero$gene_name %in% prolonged_genes$gene_name),
+                                    which(names(filtered_vs_zero)=="gene_name")]
+# Note: All transient genes are changed only at a particular time point (i.e., spike).
+save(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end, transient_genes,
+     file="results/logs/gene_groups.RData")
+```
+
+## LFC plot
+```{r lfc versus time plot}
+# set of genes which prolonged change in the expression after 12 hours until the end.
+genes_of_interest <- data.frame(
+  gene_name = c(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end),
+  change_from = c(rep("12", length(change_at_12_to_end)),
+            rep("24", length(change_at_24_to_end)),
+            rep("48", length(change_at_48_to_end)))
+)
+
+res_df = merge(results, genes_of_interest)
+
+df_time0 <- res_df %>% filter(grepl("_vs_0$", comparison))
+df_intermediate <- res_df %>% filter(!grepl("_vs_0$", comparison))
+
+df_time0 <- df_time0 %>%
+  mutate(Time = as.numeric(gsub("time_([0-9]+)_vs_0", "\\1", comparison)))
+
+df_intermediate <- df_intermediate %>%
+  mutate(Time1 = as.numeric(gsub("time_([0-9]+)_vs_([0-9]+)", "\\1", comparison)),
+         Time2 = as.numeric(gsub("time_([0-9]+)_vs_([0-9]+)", "\\2", comparison)))
+
+df_intermediate <- df_intermediate %>%
+  group_by(gene_name) %>%
+  mutate(Offset_Index = row_number() - 1) %>%
+  ungroup()
+
+# Calculate y-axis limits for each gene
+y_axis_limits <- res_df %>%
+  group_by(gene_name) %>%
+  summarize(
+    min_log2FC = min(log2FoldChange, na.rm = TRUE),
+    max_log2FC = max(log2FoldChange, na.rm = TRUE),
+    y_axis_limit = max_log2FC + (max_log2FC - min_log2FC) * 0.05  # Add 10% padding
+  )
+
+df_intermediate <- df_intermediate %>%
+  left_join(y_axis_limits, by = "gene_name") %>%
+  mutate(
+    #Offset_Index = row_number(),  # Assign each comparison a unique index
+    Y_Pos = y_axis_limit + (Offset_Index * 0.3)  # Stagger p-value markers above max limit
+  )
+
+# Define significance levels for p-value markers
+df_intermediate <- df_intermediate %>%
+  mutate(Significance = case_when(
+    pvalue < 0.001 ~ "***",
+    pvalue < 0.01  ~ "**",
+    pvalue < 0.05  ~ "*",
+    TRUE ~ ""
+  ))
+
+# Create the plot with facets for each gene
+ggplot() +
+  # Plot log2FoldChange for time 0 comparisons
+  geom_point(data = df_time0, aes(x = Time, y = log2FoldChange, color = padj < 0.05), size = 1.5) +
+  geom_line(data = df_time0, aes(x = Time, y = log2FoldChange, group = gene_name)) +
+  
+  # Add p-value markers as separate, non-linking lines (for all comparisons)
+  geom_segment(data = df_intermediate %>% filter(Significance != ""), 
+               aes(x = Time1, xend = Time2, 
+                   y = Y_Pos, yend = Y_Pos), 
+               color = "black", size = 0.5) +
+
+  # Add significance markers (***, **, *) only for significant comparisons
+  geom_text(data = df_intermediate %>% filter(Significance != ""), 
+            aes(x = (Time1 + Time2) / 2, y = Y_Pos + 0.025, label = Significance), 
+            size = 4, color = "black") +
+
+  # Facet each gene into separate plots
+  facet_wrap(~gene_name, scales = "free") +
+  coord_cartesian() +
+
+  # Customize x-axis ticks to show only specific time points
+  scale_x_continuous(breaks = c(12, 24, 48, 96), labels = c("12", "24", "48", "96")) +
+  
+  # Labels and formatting
+  labs(title = "Genes regulated by dox over time",
+       caption = "*: p < 0.05\n**: p < 0.01\n***: p < 0.001",
+       x = "Time after dox induction (hours)",
+       y = "log2fold change",
+       color = "Significant (padj < 0.05)\ncompared to the zero timepoint") +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)
+  )
+ggsave("results/lfc_prolonged_genes.png", width = 20, height = 12, dpi = 500)
+```
+
+## TPM plot
+```{r TPM for genes of interest}
+sig_gene <- as.data.frame(unique(filtered_results$gene_id))
+names(sig_gene) <- "gene_id"
+
+# subset the data frame of avg / sd TPM values
+sig_gene_tpm <- inner_join(avg_and_sd_values, sig_gene, by = "gene_id")
+sig_gene_tpm <- merge(sig_gene_tpm, g2s)
+
+# prepare TPM data for plotting genes of interest
+df_plot_genes <- merge(sig_gene_tpm, genes_of_interest)
+
+time_avg_values <- names(df_plot_genes)[grep("avg", names(df_plot_genes))]
+df_plot_genes_avg <- melt(df_plot_genes, measure.vars = time_avg_values, value_name = "gene_id")
+df_plot_genes_avg$Time <- do.call(rbind, stringr::str_split(df_plot_genes_avg$variable, '_avg'))[,1]
+df_plot_genes_avg$Time <- as.numeric(df_plot_genes_avg$Time)
+colnames(df_plot_genes_avg)[which(colnames(df_plot_genes_avg) == 'value')] <- 'avg'
+df_plot_genes_avg <- df_plot_genes_avg %>% select("gene_name", "Time", "avg")
+
+time_sd_values <- names(df_plot_genes)[grep("sd", names(df_plot_genes))]
+df_plot_genes_sd <- melt(df_plot_genes, measure.vars = time_sd_values, value_name = "gene_id")
+df_plot_genes_sd$Time <- do.call(rbind, stringr::str_split(df_plot_genes_sd$variable, '_sd'))[,1]
+df_plot_genes_sd$Time <- as.numeric(df_plot_genes_sd$Time)
+colnames(df_plot_genes_sd)[which(colnames(df_plot_genes_sd) == 'value')] <- 'sd'
+df_plot_genes_sd <- df_plot_genes_sd %>% select("gene_name", "Time", "sd")
+
+df_plot_genes_avg_sd <- merge(df_plot_genes_avg, df_plot_genes_sd, by = c("gene_name", "Time"))
+
+ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
+  geom_line() +
+  geom_point(size=1) +
+  geom_errorbar(aes(ymin = avg-sd, ymax = avg+sd), width = 3, size = 0.5) +
+  labs(x = 'Time after dox induction (hours)', y = 'Average TPM') +
+  ggtitle('Average TPM across Time Points') +
+  facet_wrap(~ gene_name, scales = "free") +
+  # Customize x-axis ticks to show only specific time points
+  scale_x_continuous(breaks = c(0, 12, 24, 48, 96), labels = c("0", "12", "24", "48", "96")) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(), 
+    panel.border = element_rect(color = "black", fill = NA, size = 1)
+    )
+ggsave("results/tpm_prolonged_genes.png", width = 20, height = 12, dpi = 500)
+```
