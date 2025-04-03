@@ -205,18 +205,18 @@ tpm_filtered <- tpm[rowSums(tpm) > FILTER_TRESHOLD, ]
 time_points <- c("0", "12", "24", "48", "96")
 avg_and_sd_values <- list()
 for (tp in time_points) {
-  cols <- grep(paste0("WT_", tp, "_"), colnames(tpm_filtered))
-  avg  <- rowMeans(tpm_filtered[, cols])
-  sd   <- apply(tpm_filtered[, cols], 1, sd)
-  sd   <- data.frame(sd)
+  cols     <- grep(paste0("WT_", tp, "_"), colnames(tpm_filtered))
+  avg      <- rowMeans(tpm_filtered[, cols])
+  sd       <- apply(tpm_filtered[, cols], 1, sd)
+  sd       <- data.frame(sd)
   combined <- cbind(avg, sd)
   avg_and_sd_values <- c(avg_and_sd_values, list(combined))
 }
 
 # Convert the list to a data frame and add column names for the respective timepoint
-avg_and_sd_values <- do.call(cbind,  avg_and_sd_values)
+avg_and_sd_values           <- do.call(cbind,  avg_and_sd_values)
 colnames(avg_and_sd_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
-avg_and_sd_values <- as.data.frame(avg_and_sd_values) %>% rownames_to_column("gene_id") %>% merge(g2s)
+avg_and_sd_values           <- as.data.frame(avg_and_sd_values) %>% rownames_to_column("gene_id") %>% merge(g2s)
 
 save(tpm_orig, tpm_filtered, avg_and_sd_values, g2s, deseq_samples, file = "../results/tpm_results.RData")
 ```
