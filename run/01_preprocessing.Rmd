@@ -12,28 +12,33 @@ editor_options:
 ---
 
 # Introduction
-- Provide some intro and background about the project.
+- Doxycycline (or Dox) is an antibiotic drug used in biological research for inducing gene expression. 
+intro in dox, 
+experiment 
+For this analysis, we used wild type mouse (Mus musculus) stem cells at different time points after Dox treatment was applied. We used three replicates for each time point: 0, 12, 24, 48 and 96 hours after treatment.  
 
 # Goals
+- Identify specific genes that are significantly up or downregulated after Dox treatment at various time points. 
 - General analysis of gene expression. Consider repeating the analysis from class but normalizing based on time 0.
 
 # Methods
-- Explain in general the overall idea with RNA-seq analysis
-## Bench experiment
-- Ask JR about details of the experiment and how much
-## Nextflow RNA-Seq pipeline
-- Describe roughly the pipeline
-## DESeq2 analysis
-- Not sure if its better to define it later but maybe mention some details about DESeq2 here
-## TPM analysis
-- Some details about TPM
+##Nextflow RNA Sequencing Pipeline
+- For our analysis, we used Nextflow's RNAseq pipeline versions [3.14.0.][https://nf-co.re/rnaseq/3.14.0] and [3.18.0.][https://nf-co.re/rnaseq/3.18.0]  
 
-# Differential Gene Analysis
+- The inputs we used for running this pipeline: 
+ - Raw fasta sample sequence files
+ - Mouse reference genome assembled sequence (GRCm38/mm10)
+ - Genome annotation 
+
+- This pipeline consists of a series of steps that process our samples  to give an output raw read counts, and transcripts per million(tpm). Counts and tpm values were used to 
 
 ## Nextflow output
 - May describe the results from the nextflow pipeline, some QC plots and the type of files produced.
 
-## RNA-seq analysis with DESeq2
+##DESeq2 Analysis
+- Explain in general the overall idea with RNA-seq analysis
+
+# Data preprocessing for RNA-seq analysis with DESeq2
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = TRUE)
