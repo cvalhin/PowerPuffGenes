@@ -1,0 +1,163 @@
+---
+title: "03_heatmaps"
+author: "FN, CV, LP"
+date: "2025-04-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#library imports 
+library(IRanges)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(readr)
+library(ggplot2)
+library(purrr)
+library(magrittr)
+library(pheatmap)
+library(textshape)
+library(Rcpp)
+library(matrixStats)
+library(rtracklayer)
+library(tidyverse)
+library(DESeq2)
+library(broom)
+library(reshape)
+```
+
+
+##Heatmaps
+```{r}
+# Load necessary data 
+load("../results/tpm_results.RData")
+load("../results/DESeq2_results.RData")
+load("../results/counts_files.RData")
+```
+
+###All significant genes
+```{r}
+# (1) Pre analysis: Define clustering and distance methods for samples
+# First step is calculating distance between all samples.
+# Log-transform the TPM values. 
+log_tpm_matrix <- log2(tpm_filtered + 1)
+
+# Calculate how closely related each samples is to one another using the dist function
+distance_matrix <- dist(t(log_tpm_matrix), method = "euclidean")
+
+# Perform hierarchical clustering of each samples relationship using hclust
+hc_complete <- hclust(distance_matrix, method = "complete")
+
+# Plot the distance calculated in hclust!
+plot(hc_complete, labels = colnames(log_tpm_matrix), main = "Global TPM Filtered Dendrogram", sub = "sample relationship by time and replicate after dox treatment")
+
+# Cut tree to limit the clusters 
+clusters <- cutree(hc_complete, k = 5)
+# Print out which sample is in which cluster
+print(clusters)
+
+# Making a dendrogram of hc_complete
+dend_hc_complete <- as.dendrogram(hc_complete)
+
+# Reorder the dendrogram based on the clusters created above
+dend_hc_complete <- reorder(dend_hc_complete, clusters)
+
+# Plot the reordered dendrogram
+plot(dend_hc_complete, main = "Global TPM Filtered Dendrogram (Ordered by Cluster)", sub = "Sample relationship by time and replicate after dox treatment")
+
+#(2) Using pheatmap to plot the heatmap of the significant genes
+
+# Add gene_names and select names from all genes list (g2s)
+log_tpm_matrix_gene_names <- log_tpm_matrix %>% rownames_to_column("gene_id") %>% merge(g2s)
+
+# Extract the only column from filtered_genes as a vector for easier manipulation
+filtered_genes_vector <- filtered_genes[[1]]
+
+# Filter to significant genes object called sig_log_tpm_matrix
+sig_log_tpm_matrix <- log_tpm_matrix_gene_names[log_tpm_matrix_gene_names$gene_name %in% filtered_genes_vector, ]
+
+# Remove all observations with missing data (NA)
+sig_log_tpm_matrix <- na.omit(sig_log_tpm_matrix)
+
+# Remove non numeric data for plotting heatmap
+sig_log_tpm_matrix_numeric <- sig_log_tpm_matrix %>% select(-gene_id, -gene_name)
+
+# Setting custom clustering and distance functions
+custom_dist <- function(x) dist(x, method = "euclidian") 
+custom_hclust <- function(x) hclust(x, method = "ward.D2") 
+
+# Set the scale
+breaks <- seq(-2, 2, length.out = 51)
+
+# Plot heatmap for log transformed significant genes using custom clustering and distance methods, and breaks
+pheatmap(sig_log_tpm_matrix_numeric, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Log2-Transformed TPM Values",
+         distfun = custom_dist,
+         color = colorRampPalette(c("purple", "white", "yellow"))(50),
+         hclustfun = custom_hclust,
+         breaks = breaks,
+         filename ="../results/heatmap_all_sig_genes_log_tpm.png"
+)
+
+
+#Heatmap with all the genes from the log_tpm_matrix (large heatmap)
+pheatmap(log_tpm_matrix, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Log2-Transformed TPM Values",
+         color = colorRampPalette(c("purple", "white", "yellow"))(50),
+         distfun = custom_dist,   
+         hclustfun = custom_hclust 
+)
+
+save(log_tpm_matrix_gene_names, sig_log_tpm_matrix, sig_log_tpm_matrix_numeric, filtered_genes_vector, file = "../results/heatmap_datasets.RData")
+```
+
+###Prolonged gene list 
+
+```{r}
+# Extract prolonged gene list from previously log transformed and filtered data 
+prolonged_sig_genes <- sig_log_tpm_matrix[sig_log_tpm_matrix$gene_name %in% genes_of_interest$gene_name, ]
+
+# Remove all observations with missing data (NA) 
+prolonged_sig_genes <- na.omit(prolonged_sig_genes)
+
+# Remove non numeric data for plotting heatmap
+prolonged_sig_genes_numeric <- prolonged_sig_genes %>% select(-gene_id, -gene_name)
+
+# Set rownames as the gene names to be able to visualize them in the heatmap
+rownames(prolonged_sig_genes_numeric) <- prolonged_sig_genes$gene_name
+
+# Setting custom clustering and distance functions
+custom_dist <- function(x) dist(x, method = "euclidian") 
+custom_hclust <- function(x) hclust(x, method = "ward.D2") 
+
+# Set the scale
+breaks <- seq(-2, 2, length.out = 51)
+
+# Plot heatmap for log transformed significant genes using custom clustering and distance methods, and breaks
+pheatmap(prolonged_sig_genes_numeric, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = TRUE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Log2-Transformed TPM Values",
+         distfun = custom_dist,
+         color = colorRampPalette(c("purple", "white", "yellow"))(50),
+         hclustfun = custom_hclust,
+         breaks = breaks,
+         filename ="../results/heatmap_prolonged_sig_genes_log_tpm.png"
+)
+
+```
+
