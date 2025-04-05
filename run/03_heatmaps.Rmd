@@ -3,10 +3,13 @@ title: "03_heatmaps"
 author: "FN, CV, LP"
 date: "2025-04-04"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+install.packages("viridis")
 #library imports 
 library(IRanges)
 library(dplyr)
@@ -25,6 +28,7 @@ library(tidyverse)
 library(DESeq2)
 library(broom)
 library(reshape)
+library(viridis)
 ```
 
 
@@ -32,41 +36,17 @@ library(reshape)
 ```{r}
 # Load necessary data 
 load("../results/tpm_results.RData")
-load("../results/DESeq2_results.RData")
 load("../results/counts_files.RData")
+load("../results/DESeq2_results.RData")
+load("../results/g2s.csv")
 ```
 
 ###All significant genes
 ```{r}
-# (1) Pre analysis: Define clustering and distance methods for samples
-# First step is calculating distance between all samples.
 # Log-transform the TPM values. 
 log_tpm_matrix <- log2(tpm_filtered + 1)
 
-# Calculate how closely related each samples is to one another using the dist function
-distance_matrix <- dist(t(log_tpm_matrix), method = "euclidean")
-
-# Perform hierarchical clustering of each samples relationship using hclust
-hc_complete <- hclust(distance_matrix, method = "complete")
-
-# Plot the distance calculated in hclust!
-plot(hc_complete, labels = colnames(log_tpm_matrix), main = "Global TPM Filtered Dendrogram", sub = "sample relationship by time and replicate after dox treatment")
-
-# Cut tree to limit the clusters 
-clusters <- cutree(hc_complete, k = 5)
-# Print out which sample is in which cluster
-print(clusters)
-
-# Making a dendrogram of hc_complete
-dend_hc_complete <- as.dendrogram(hc_complete)
-
-# Reorder the dendrogram based on the clusters created above
-dend_hc_complete <- reorder(dend_hc_complete, clusters)
-
-# Plot the reordered dendrogram
-plot(dend_hc_complete, main = "Global TPM Filtered Dendrogram (Ordered by Cluster)", sub = "Sample relationship by time and replicate after dox treatment")
-
-#(2) Using pheatmap to plot the heatmap of the significant genes
+# Using pheatmap to plot the heatmap of the significant genes
 
 # Add gene_names and select names from all genes list (g2s)
 log_tpm_matrix_gene_names <- log_tpm_matrix %>% rownames_to_column("gene_id") %>% merge(g2s)
@@ -97,7 +77,7 @@ pheatmap(sig_log_tpm_matrix_numeric,
          scale = "row",        
          show_rownames = FALSE, 
          show_colnames = TRUE,  
-         main = "Heatmap of Log2-Transformed TPM Values",
+         main = "Heatmap of Log2-Transformed TPM Values for All Significant Genes",
          distfun = custom_dist,
          color = colorRampPalette(c("purple", "white", "yellow"))(50),
          hclustfun = custom_hclust,
@@ -151,7 +131,7 @@ pheatmap(prolonged_sig_genes_numeric,
          scale = "row",        
          show_rownames = TRUE, 
          show_colnames = TRUE,  
-         main = "Heatmap of Log2-Transformed TPM Values",
+         main = "Heatmap of Log2-Transformed TPM Values of Prolonged Genes",
          distfun = custom_dist,
          color = colorRampPalette(c("purple", "white", "yellow"))(50),
          hclustfun = custom_hclust,
@@ -160,4 +140,6 @@ pheatmap(prolonged_sig_genes_numeric,
 )
 
 ```
+
+
 
