@@ -3,28 +3,39 @@ title: "PowerPuffGenes Report"
 authors: "FN, CV, LP"
 date: "2025-03-17"
 output:
-  pdf_document:
-    toc: true
   html_document:
+    toc: true
+  pdf_document:
     toc: true
 editor_options:
   chunk_output_type: console
 ---
 
-# Introduction
-- Biological background about the project. If pertinent, break into subsections (Use ##)
-
-# Goals or Overview
-- Could be mentioned in the introduction instead. Describe what we want we want to achieve:
-  - General analysis of gene expression. Consider repeating the analysis from class but normalizing based on time 0.
-  - Compare genes with transient vs prolonged changes in expression after dox induction.
-  - Compare nextflow versions (3.14 and 3.18) and different runs for 3.14 (rep1 and rep2) results.
+# Introduction (change)
+Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes like stem cell differentiation or response to stimuli. This project utilizes a doxycycline (dox)-inducible system in mouse stem cells, where dox triggers gene expression via the rtTA-TRE mechanism. While powerful, concerns exist that dox itself might exert off-target effects on the transcriptome. Leveraging a publicly available RNA-seq dataset spanning five time points (0, 12, 24, 48, 96 hours) with replicates, this analysis aims to: 1) Identify genes significantly regulated following dox administration. 2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses. 3) Investigate potential pathways affected by these changes. We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differential expression analysis, providing a practical application of bioinformatics skills to time-course data exploration."
 
 # RNA sequence analysis
-## NF-core rnaseq pipeline
-- May wanna explain the overview of the pipeline, acknowledge nfcore and nextflow, and include their image or link
-- Explain briefly STAR, RSEM, HISAT2 or Salmon
-- Input/Output files and what each of them mean (specially the output files)
+
+## nf-core/rnaseq Pipeline
+
+The raw sequencing reads were processed using the [nf-core/rnaseq pipeline](https://nf-co.re/rnaseq) version 3.14, a standardized and reproducible bioinformatics pipeline built using [Nextflow](https://www.nextflow.io/).
+
+*(Optional: Include pipeline diagram)*
+![nf-core/rnaseq diagram](https://nf-co.re/images/docs/rnaseq_logo_light.png)
+
+In brief, the pipeline performs the following key steps:
+1.  **Quality Control:** Raw reads were assessed using FastQC and summarised using MultiQC.
+2.  **Read Alignment:** Reads were aligned to the mouse reference genome (e.g., GRCm39/mm39, specify version) using the STAR aligner. STAR (Spliced Transcripts Alignment to a Reference) is efficient at mapping RNA-seq reads across splice junctions. 
+3.  **Quantification:** Gene expression levels were quantified using Salmon (or RSEM, specify which was used by the pipeline run). Salmon is a fast tool for transcript quantification using quasi-mapping and a lightweight alignment approach, which then summarizes transcript counts to the gene level. 
+
+### Key Input/Output Files
+
+* **Input:** Raw FASTQ files (paired-end reads recommended) and a sample sheet defining the experimental design (samples, conditions, replicates).
+* **Output:** The pipeline generates numerous output files. Key files used in this analysis include:
+    * `salmon.merged.gene_counts.tsv`: Raw gene-level counts estimated by Salmon. Used as input for DESeq2 statistical modeling.
+    * `salmon.merged.gene_tpm.tsv`: Gene-level Transcripts Per Million (TPM) values. Used for expression level interpretation and visualization, as TPM is normalized for gene length and sequencing depth.
+    * `multiqc/multiqc_report.html`: An aggregated quality control report across all samples.
+    * Alignment files (BAM format): Detailed mapping results (not directly used in this DE analysis but available).
 
 # Differential Expression Analysis
 
@@ -48,6 +59,11 @@ library(tidyverse)
 library(DESeq2)
 library(broom)
 library(reshape)
+library(ggrepel)
+library(ggdendro)
+library(circlize)
+library(stringr)
+#library(biomaRt)
 ```
 
 ### Parameters and paths definition
@@ -107,6 +123,43 @@ dds <- DESeqDataSetFromMatrix(countData = counts_filtered,
                               design = ~ time_point) 
 dds <- DESeq(dds)
 ```
+
+```{r}
+# PCA analysis of the samples
+# Create a PCA plot function
+plot_pca <- function(dds, intgroup="time_point", ntop=500) {
+  # Get variance stabilized data
+  vsd <- vst(dds, blind=FALSE)
+  
+  # Run PCA
+  pca_data <- plotPCA(vsd, intgroup=intgroup, returnData=TRUE, ntop=ntop)
+  
+  # Calculate the percentage of variance explained
+  percentVar <- round(100 * attr(pca_data, "percentVar"))
+  
+  # Create the plot
+  ggplot(pca_data, aes(x=PC1, y=PC2, color=time_point, shape=replicate)) +
+    geom_point(size=3) +
+    xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+    ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+    ggtitle("PCA of RNA-seq samples") +
+    theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.border = element_rect(color = "black", fill = NA, size = 1)
+    ) +
+    scale_color_brewer(palette = "Set1")
+}
+
+# Generate PCA plot
+pca_plot <- plot_pca(dds, intgroup=c("time_point", "replicate"))
+print(pca_plot)
+
+# Save the plot
+ggsave("results/pca_time_series.png", pca_plot, width = 8, height = 6, dpi = 300)
+```
+
 
 ### Obtaining and filtering count results
 ```{r obtain count results for all comparisons and filter}
@@ -191,9 +244,9 @@ save(avg_and_sd_values, file = "results/logs/results_tpm.RData" )
 
 ### Distribution of count results
 ```{r filtered counts statistics distributions}
-#load("results/logs/results_counts.RData")
-#load("results/logs/results_tpm.RData")
-#load("results/logs/data_files.RData")
+load("results/logs/results_counts.RData")
+load("results/logs/results_tpm.RData")
+load("results/logs/data_files.RData")
 
 par(mfrow = c(2, 2))
 # Base Mean histogram
@@ -228,15 +281,6 @@ hist(filtered_results$log2FoldChange,
      breaks = 1000, 
      col = "yellow", 
      border = "white")
-
-# T-test comparing baseMean expression of all genes vs filtered genes
-basemean_all_genes <- median(results$baseMean)
-basemean_fil_genes <- median(filtered_results$baseMean)
-t.test(results$baseMean, filtered_results$baseMean)
-
-# Intersect by gene_name filtered results table and raw counts
-counts_filtered_genes <- counts_orig[filtered_results$gene_id,]
-# TODO delete repetitive instances of genes
 ```
 
 ### Distribution of tpm results
@@ -244,12 +288,123 @@ counts_filtered_genes <- counts_orig[filtered_results$gene_id,]
 # Make a distribution of TPM values in each time point - using facet-wrap
 time_values <- names(avg_and_sd_values)[grep("avg", names(avg_and_sd_values))]
 melt_tpm_df <- melt(avg_and_sd_values, measure.vars = time_values, value_name = "gene_id")
-ggplot(melt_tpm_df, aes(x = value)) +
+ggplot(melt_tpm_df, aes(x = log2(value))) +
+#ggplot(melt_tpm_df, aes(x = value)) +
   geom_histogram(bins = 50) +
   facet_wrap(~ variable, scales = "free_x")+
-  xlim(0,1000) +
-  ylim(0,1000) +
+  #xlim(0,1000) +
+  #ylim(0,1000) +
   theme("paperwhite")
+```
+
+### Generate Faceted Volcano Plots
+```{r generate_faceted_volcano_plots} 
+# Pre-process results for heatmap
+filtered_results_hm <- results %>% 
+  mutate(
+    negLog10Padj = -log10(padj),
+     significance = case_when(
+      padj < P_VALUE_FILTER & log2FoldChange > LOG2_FOLD_FILTER  ~ "Upregulated",
+      padj < P_VALUE_FILTER & log2FoldChange < -LOG2_FOLD_FILTER ~ "Downregulated",
+      TRUE                                                      ~ "Not Significant" ),
+    significance = factor(significance, levels = c("Upregulated", "Downregulated", "Not Significant")),
+    gene_label = if_else(significance != "Not Significant", gene_name, "")
+    ) %>%
+  filter(!is.na(padj) & !is.na(log2FoldChange))
+
+# Define colors
+color_map <- c("Upregulated" = "red", "Downregulated" = "blue", "Not Significant" = "grey")
+
+# Define common volcano theme
+common_volcano_theme <- theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5, face = "bold", size = rel(1.2)),
+    strip.text = element_text(face = "bold", size=rel(0.9)), # Style facet titles
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 0.5)
+  )
+
+# --- Filter for Baseline Comparisons ---
+timestep_comparisons <- c("time_12_vs_0", "time_24_vs_0", "time_48_vs_0", "time_96_vs_0")
+filtered_results_hm_timesteps <- filtered_results_hm %>%
+  filter(comparison %in% timestep_comparisons) %>%
+  # Ensure 'comparison' factor levels are only those present, in the desired order
+  mutate(comparison = factor(comparison, levels = timestep_comparisons))
+
+# --- Create the Baseline plot ---
+plot_baseline <- ggplot(
+    filtered_results_hm_timesteps,
+    aes(x = log2FoldChange, y = negLog10Padj, color = significance, label = gene_label)
+    ) +
+  geom_point(alpha = 0.5, size = 1.0) +
+  scale_color_manual(values = color_map, name = "Significance") +
+  geom_vline(xintercept = c(-LOG2_FOLD_FILTER, LOG2_FOLD_FILTER), lty = "dashed", color = "grey40", alpha=0.6) +
+  geom_hline(yintercept = -log10(P_VALUE_FILTER), lty = "dashed", color = "grey40", alpha=0.6) +
+  geom_text_repel(
+      max.overlaps = 15, # Adjust as needed for this plot
+      size = 2.5,
+      box.padding = 0.3,
+      point.padding = 0.2,
+      segment.color = 'grey50',
+      segment.size = 0.3,
+      show.legend = FALSE
+  ) +
+  # Facet into a 2x2 grid
+  facet_wrap(~ comparison, ncol = 2, scales = "free_y") +
+  labs(
+    title = "Volcano Plots: Comparisons vs Baseline (0h)",
+    x = expression(Log[2]("Fold Change")),
+    y = expression(-Log[10]("Adjusted P-value"))
+  ) +
+  common_volcano_theme + # Apply the common theme
+  coord_cartesian(ylim = c(0, NA))
+
+# --- Print the plot ---
+print(plot_baseline)
+
+# --- Filter for Time Series Comparisons ---
+timeseries_comparisons <- c("time_12_vs_0", "time_24_vs_12", "time_48_vs_24", "time_96_vs_48")
+results_timeseries <- filtered_results_hm %>%
+  filter(comparison %in% timeseries_comparisons) %>%
+  # Ensure 'comparison' factor levels are only those present, in the desired order
+  mutate(comparison = factor(comparison, levels = timeseries_comparisons))
+
+# --- Create the Time Series plot ---
+plot_timeseries <- ggplot(
+    results_timeseries,
+    aes(x = log2FoldChange, y = negLog10Padj, color = significance, label = gene_label)
+    ) +
+  geom_point(alpha = 0.5, size = 1.0) +
+  scale_color_manual(values = color_map, name = "Significance") +
+  geom_vline(xintercept = c(-LOG2_FOLD_FILTER, LOG2_FOLD_FILTER), lty = "dashed", color = "grey40", alpha=0.6) +
+  geom_hline(yintercept = -log10(P_VALUE_FILTER), lty = "dashed", color = "grey40", alpha=0.6) +
+  geom_text_repel(
+      max.overlaps = 15, # Adjust as needed for this plot
+      size = 2.5,
+      box.padding = 0.3,
+      point.padding = 0.2,
+      segment.color = 'grey50',
+      segment.size = 0.3,
+      show.legend = FALSE
+  ) +
+  # Facet into a 2x2 grid
+  facet_wrap(~ comparison, ncol = 2, scales = "free_y") +
+  labs(
+    title = "Volcano Plots: Sequential Time Comparisons",
+    x = expression(Log[2]("Fold Change")),
+    y = expression(-Log[10]("Adjusted P-value"))
+  ) +
+  common_volcano_theme + # Apply the common theme
+  coord_cartesian(ylim = c(0, NA))
+
+# --- Print the plot ---
+print(plot_timeseries)
+
+# Optional cleanup
+# rm(results_timeseries, plot_timeseries, timeseries_comparisons)
+# rm(results_processed, color_map, common_volcano_theme) # Clean up common elements if done
 ```
 
 
@@ -423,3 +578,529 @@ ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
     )
 ggsave("results/tpm_prolonged_genes.png", width = 20, height = 12, dpi = 500)
 ```
+
+
+### All significant genes
+```{r}
+# (1) Pre analysis: Define clustering and distance methods for samples
+# First step is calculating distance between all samples.
+# Log-transform the TPM values. 
+library(dplyr)
+log_tpm_matrix <- log2(tpm_filtered + 1)
+
+# Calculate how closely related each samples is to one another using the dist function
+distance_matrix <- dist(t(log_tpm_matrix), method = "euclidean")
+
+# Perform hierarchical clustering of each samples relationship using hclust
+hc_complete <- hclust(distance_matrix, method = "complete")
+
+# Plot the distance calculated in hclust!
+plot(hc_complete, labels = colnames(log_tpm_matrix), main = "Global TPM Filtered Dendrogram", sub = "sample relationship by time and replicate after dox treatment")
+
+# Cut tree to limit the clusters 
+clusters <- cutree(hc_complete, k = 5)
+# Print out which sample is in which cluster
+print(clusters)
+
+# Making a dendrogram of hc_complete
+dend_hc_complete <- as.dendrogram(hc_complete)
+
+# Reorder the dendrogram based on the clusters created above
+dend_hc_complete <- reorder(dend_hc_complete, clusters)
+
+# Plot the reordered dendrogram
+plot(dend_hc_complete, main = "Global TPM Filtered Dendrogram (Ordered by Cluster)", sub = "Sample relationship by time and replicate after dox treatment")
+
+#(2) Using pheatmap to plot the heatmap of the significant genes
+
+# Add gene_names and select names from all genes list (g2s)
+log_tpm_matrix_gene_names <- log_tpm_matrix %>% rownames_to_column("gene_id") %>% merge(g2s)
+
+# Extract the only column from filtered_genes as a vector for easier manipulation
+filtered_genes_vector <- filtered_genes[[1]]
+
+# Filter to significant genes object called sig_log_tpm_matrix
+sig_log_tpm_matrix <- log_tpm_matrix_gene_names[log_tpm_matrix_gene_names$gene_name %in% filtered_genes_vector, ]
+
+# Remove all observations with missing data (NA)
+sig_log_tpm_matrix <- na.omit(sig_log_tpm_matrix)
+
+# Remove non numeric data for plotting heatmap
+sig_log_tpm_matrix_numeric <- sig_log_tpm_matrix %>% dplyr::select(-gene_id, -gene_name)
+
+# Setting custom clustering and distance functions
+custom_dist <- function(x) dist(x, method = "euclidian") 
+custom_hclust <- function(x) hclust(x, method = "ward.D2") 
+
+# Set the scale
+breaks <- seq(-2, 2, length.out = 51)
+
+# Plot heatmap for log transformed significant genes using custom clustering and distance methods, and breaks
+pheatmap(sig_log_tpm_matrix_numeric, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Log2-Transformed TPM Values",
+         distfun = custom_dist,
+         color = colorRampPalette(c("purple", "white", "yellow"))(50),
+         hclustfun = custom_hclust,
+         breaks = breaks,
+         filename ="results/heatmap_all_sig_genes_log_tpm.png"
+)
+
+
+#Heatmap with all the genes from the log_tpm_matrix (large heatmap)
+pheatmap(log_tpm_matrix, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = FALSE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Log2-Transformed TPM Values",
+         color = colorRampPalette(c("purple", "white", "yellow"))(50),
+         distfun = custom_dist,   
+         hclustfun = custom_hclust 
+)
+
+save(log_tpm_matrix_gene_names, sig_log_tpm_matrix, sig_log_tpm_matrix_numeric, filtered_genes_vector, file = "results/logs/heatmap_datasets.RData")
+```
+
+### Prolonged gene list 
+```{r}
+library(dplyr)
+# Extract prolonged gene list from previously log transformed and filtered data 
+prolonged_sig_genes <- sig_log_tpm_matrix[sig_log_tpm_matrix$gene_name %in% genes_of_interest$gene_name, ]
+
+# Remove all observations with missing data (NA) 
+prolonged_sig_genes <- na.omit(prolonged_sig_genes)
+
+# Remove non numeric data for plotting heatmap
+prolonged_sig_genes_numeric <- prolonged_sig_genes %>% dplyr::select(-gene_id, -gene_name)
+
+# Set rownames as the gene names to be able to visualize them in the heatmap
+rownames(prolonged_sig_genes_numeric) <- prolonged_sig_genes$gene_name
+
+# Setting custom clustering and distance functions
+custom_dist <- function(x) dist(x, method = "euclidian") 
+custom_hclust <- function(x) hclust(x, method = "ward.D2") 
+
+# Set the scale
+breaks <- seq(-2, 2, length.out = 51)
+
+# Plot heatmap for log transformed significant genes using custom clustering and distance methods, and breaks
+pheatmap(prolonged_sig_genes_numeric, 
+         cluster_rows = TRUE,  
+         cluster_cols = TRUE,  
+         scale = "row",        
+         show_rownames = TRUE, 
+         show_colnames = TRUE,  
+         main = "Heatmap of Log2-Transformed TPM Values",
+         distfun = custom_dist,
+         color = colorRampPalette(c("purple", "white", "yellow"))(50),
+         hclustfun = custom_hclust,
+         breaks = breaks,
+         filename ="results/heatmap_prolonged_sig_genes_log_tpm.png"
+)
+
+```
+
+```{r}
+library(circlize)
+library(readr)
+library(biomaRt)
+library(rtracklayer)
+library(stringr)
+load("results/logs/data_files.RData")
+
+# Load your gene counts (you'll need this for DE analysis before this step)
+# counts orig <- read_tsv("salmon.merged.gene_counts .txt")
+# DESEQ results filterd to significant genes are in filtered_results. Columns gene_id, baseMean, log2FoldChange, lfcSE, stat, pvalue, padj, gene_name, comparison
+# path to gtf annotation file is /scratch/Shares/rinnclass/MASTER_CLASS/GENOMES/M25/gencode.vM25.annotation.gtf
+
+# --- 3. Get Gene Locations from GTF ---
+gtf_file <- "/scratch/Shares/rinnclass/MASTER_CLASS/GENOMES/M25/gencode.vM25.annotation.gtf"
+# Import the GTF file
+gtf_data <- rtracklayer::import(gtf_file)
+# Filter for gene entries and extract relevant information
+gene_locations <- as.data.frame(gtf_data) %>%
+  filter(type == "gene") %>%
+  dplyr::select(chr = seqnames, start, end, gene_id, gene_name) %>%
+  mutate(chr = as.character(chr)) # Ensure chromosome is character
+
+# Ensure chromosome names have the 'chr' prefix if needed by circlize ideogram
+# The mm10 ideogram uses 'chr1', 'chr2', etc. Check if your GTF already has this.
+if (!all(str_detect(gene_locations$chr, "^chr"))) {
+  gene_locations$chr <- paste0("chr", gene_locations$chr)
+}
+
+# Filter out non-standard chromosomes if necessary (optional, depends on GTF)
+valid_chromosomes <- paste0("chr", c(1:19, "X", "Y")) # Standard mouse chromosomes for mm10
+gene_locations <- filter(gene_locations, chr %in% valid_chromosomes)
+
+# Remove version number from GTF gene_id if present (GENCODE typically includes it)
+gene_locations <- gene_locations %>%
+    mutate(gene_id_base = str_remove(gene_id, "\\.\\d+$"))
+
+# --- 4. Merge DE results with Locations ---
+
+# Prepare DE results: Remove version from gene_id for merging
+de_results_prepared <- filtered_results %>%
+    mutate(gene_id_base = str_remove(gene_id, "\\.\\d+$"))
+
+# Merge DE results with gene locations
+# Note: Using inner_join means only genes found in both datasets will be kept
+annotated_results <- inner_join(de_results_prepared, gene_locations, by = "gene_id_base")
+
+# Select relevant columns for plotting
+# Keep original gene_id.x from DE results if needed later, rename others for clarity
+annotated_results <- annotated_results %>%
+    dplyr::select(gene_id = gene_id.x, log2FoldChange, padj, gene_name = gene_name.x,
+           comparison, chr, start, end)
+
+# --- 5. Prepare Data for Circlize ---
+# Separate upregulated and downregulated genes from the (already significant) results
+# You might not need the padj filter here if 'filtered_results' is truly pre-filtered
+upregulated_genes <- annotated_results %>%
+  # filter(padj < padj_threshold & log2FoldChange > logFC_threshold_up) %>%
+  filter(log2FoldChange > LOG2_FOLD_FILTER) %>%
+  dplyr::select(chr, start, end, log2FoldChange)
+
+downregulated_genes <- annotated_results %>%
+  # filter(padj < padj_threshold & log2FoldChange < logFC_threshold_down) %>%
+   filter(log2FoldChange < LOG2_FOLD_FILTER) %>%
+  dplyr::select(chr, start, end, log2FoldChange)
+
+# --- 6. Create Circos Plot ---
+# First, exit browse mode with 'c' or 'Q'
+
+# Let's check if the upregulated_genes dataframe has data
+print(dim(upregulated_genes))
+print(head(upregulated_genes))
+
+# We need to modify our approach to handle the circos plotting
+# This version uses a different method that works well with the circlize package
+
+# Clear any existing circos plots
+circos.clear()
+
+# Set parameters
+circos.par(start.degree = 90)
+
+# Initialize with ideogram
+circos.initializeWithIdeogram(
+  species = "mm10",
+  chromosome.index = sort(unique(gene_locations$chr))
+)
+
+# Configure track appearance parameters
+point_cex <- 0.6
+up_col <- "red"
+down_col <- "blue"
+track_height <- 0.1
+
+# Function to properly plot points on genomic regions
+plot_genomic_points <- function(data, point_color) {
+  if(nrow(data) > 0) {
+    circos.genomicTrack(
+      data,
+      ylim = c(0, 1),
+      track.height = track_height,
+      bg.border = NA,
+      panel.fun = function(region, value, ...) {
+        # Simply plot points at fixed y-coordinate
+        circos.genomicPoints(
+          region, 
+          value = rep(0.5, nrow(region)),
+          col = point_color, 
+          pch = 16, 
+          cex = point_cex
+        )
+      }
+    )
+  } else {
+    message("No data to plot for this track")
+  }
+}
+
+# Plot upregulated genes
+plot_genomic_points(upregulated_genes, up_col)
+
+# Plot downregulated genes
+plot_genomic_points(downregulated_genes, down_col)
+
+# Add title and legend
+title(plot_title)
+legend(
+  "bottom",
+  legend = c("Upregulated", "Downregulated"),
+  col = c(up_col, down_col),
+  pch = 16,
+  cex = 0.8,
+  horiz = TRUE
+)
+```
+
+```{r}
+library(circlize)
+library(readr)
+library(biomaRt)
+library(rtracklayer)
+library(stringr)
+library(dplyr)
+load("results/logs/data_files.RData")
+load("results/logs/results_counts.RData")
+
+# Load your gene counts (you'll need this for DE analysis before this step)
+# counts orig <- read_tsv("salmon.merged.gene_counts .txt")
+# DESEQ results filterd to significant genes are in filtered_results. Columns gene_id, baseMean, log2FoldChange, lfcSE, stat, pvalue, padj, gene_name, comparison
+# path to gtf annotation file is /scratch/Shares/rinnclass/MASTER_CLASS/GENOMES/M25/gencode.vM25.annotation.gtf
+
+# --- 3. Get Gene Locations from GTF ---
+gtf_file <- "/scratch/Shares/rinnclass/MASTER_CLASS/GENOMES/M25/gencode.vM25.annotation.gtf"
+# Import the GTF file
+gtf_data <- rtracklayer::import(gtf_file)
+# Filter for gene entries and extract relevant information
+gene_locations <- as.data.frame(gtf_data) %>%
+  filter(type == "gene") %>%
+  dplyr::select(chr = seqnames, start, end, gene_id, gene_name) %>%
+  mutate(chr = as.character(chr)) # Ensure chromosome is character
+
+# Ensure chromosome names have the 'chr' prefix if needed by circlize ideogram
+# The mm10 ideogram uses 'chr1', 'chr2', etc. Check if your GTF already has this.
+if (!all(str_detect(gene_locations$chr, "^chr"))) {
+  gene_locations$chr <- paste0("chr", gene_locations$chr)
+}
+
+# Filter out non-standard chromosomes if necessary (optional, depends on GTF)
+valid_chromosomes <- paste0("chr", c(1:19, "X", "Y")) # Standard mouse chromosomes for mm10
+gene_locations <- filter(gene_locations, chr %in% valid_chromosomes)
+
+# Remove version number from GTF gene_id if present (GENCODE typically includes it)
+gene_locations <- gene_locations %>%
+    mutate(gene_id_base = str_remove(gene_id, "\\.\\d+$"))
+
+# --- 4. Merge DE results with Locations ---
+
+# Prepare DE results: Remove version from gene_id for merging
+de_results_prepared <- filtered_results %>%
+    mutate(gene_id_base = str_remove(gene_id, "\\.\\d+$"))
+
+# Merge DE results with gene locations
+# Note: Using inner_join means only genes found in both datasets will be kept
+annotated_results <- inner_join(de_results_prepared, gene_locations, by = "gene_id_base")
+
+# Select relevant columns for plotting
+# Keep original gene_id.x from DE results if needed later, rename others for clarity
+annotated_results <- annotated_results %>%
+    dplyr::select(gene_id = gene_id.x, log2FoldChange, padj, gene_name = gene_name.x,
+           comparison, chr, start, end)
+
+# --- 5. Prepare Data for Circlize ---
+# Extract all unique comparisons
+time_points <- unique(annotated_results$comparison)
+time_points <- time_points[1:4]
+# Expected to be something like c("0vs12", "0vs24", "0vs48", "0vs96")
+
+# Function to create a sorted chromosome factor to fix chromosome order
+create_sorted_chr_factor <- function() {
+  # Create a correctly ordered factor for chromosomes
+  chr_levels <- c(paste0("chr", 1:19), "chrX", "chrY")
+  return(factor(chr_levels, levels = chr_levels))
+}
+
+# --- 6. Create Circos Plot ---
+# Clear any existing circos plots
+circos.clear()
+
+# Create a sorted factor for chromosomes
+sorted_chrs <- create_sorted_chr_factor()
+
+# Set parameters
+circos.par(start.degree = 90, gap.degree = 2)
+
+# Initialize with ideogram, ensuring chromosomes are in the correct order
+circos.initializeWithIdeogram(
+  species = "mm10",
+  chromosome.index = levels(sorted_chrs)
+)
+
+# Configure track appearance parameters
+point_cex <- 0.6
+track_height <- 0.15
+
+# Find the global min and max log2FC values
+global_max_fc <- max(abs(annotated_results$log2FoldChange), na.rm = TRUE)
+message(paste("Original max log2FC:", global_max_fc))
+
+# Add 20% margin to prevent points from being out of bounds
+global_max_fc <- global_max_fc * 1.2
+message(paste("Adjusted max log2FC with 20% margin:", global_max_fc))
+
+# Color cap - setting this to a reasonable value that will capture most differences
+# while not being overwhelmed by extreme outliers
+color_cap <- 2  # Increased from 3 to accommodate more extreme values
+
+# Create a more subtle color mapping function for log2FoldChange values
+get_subtle_color <- function(value) {
+  # Use a more subtle blue-white-red gradient with value capping
+  if (is.na(value)) return("gray80")
+  
+  # Cap extreme values for color purposes only (data still shows actual position)
+  capped_value <- max(min(value, color_cap), -color_cap)
+  
+  # Calculate color intensity - adjusted to be more subtle
+  intensity <- abs(capped_value) / color_cap
+  # Apply a non-linear transformation to make small differences more visible
+  # while preventing extreme values from dominating
+  intensity <- sqrt(intensity) * 0.8  # Reduce to 80% max intensity for subtlety
+  
+  if (capped_value < 0) {
+    # Blue for negative with white component to make it lighter
+    return(rgb(1 - intensity * 0.7, 1 - intensity * 0.7, 1))  # More subtle blue
+  } else if (capped_value > 0) {
+    # Red for positive with white component to make it lighter
+    return(rgb(1, 1 - intensity * 0.7, 1 - intensity * 0.7))  # More subtle red
+  } else {
+    return("white")  # Zero value
+  }
+}
+
+# Function to plot each timepoint comparison with consistent coloring
+plot_timepoint_comparison <- function(comparison_data, track_title) {
+  if(nrow(comparison_data) > 0) {
+    # Use global min/max for y-axis limits to keep scales consistent
+    # Make sure the y-axis limits are wide enough for all data points
+    ylim <- c(-20, 20)
+    
+    circos.genomicTrack(
+      comparison_data,
+      ylim = ylim,
+      track.height = track_height,
+      bg.border = "black",
+      panel.fun = function(region, value, ...) {
+        # For each genomic region in this cell/sector
+        for (i in 1:nrow(region)) {
+          # Get log2FC for this specific point
+          log2fc <- value$log2FoldChange[i]
+          
+          # Check if point is an extreme outlier
+          if (abs(log2fc) > global_max_fc) {
+            # Print information about extreme outliers (for debugging)
+            message(sprintf("Extreme value: %s, chr=%s, log2FC=%.2f", 
+                           track_title, CELL_META$sector.index, log2fc))
+          }
+          
+          # Get color for this specific point using the subtle color function
+          point_color <- get_subtle_color(log2fc)
+          
+          # Plot the individual point with its specific color
+          circos.points(
+            mean(c(region$start[i], region$end[i])),  # x-position (center of region)
+            log2fc,                                   # y-position (log2FC value)
+            col = point_color,                        # color based on log2FC
+            pch = 16,                                 # solid circle
+            cex = point_cex                           # point size
+          )
+        }
+        
+        # Add horizontal line at y=0
+        circos.lines(CELL_META$xlim, c(0, 0), col = "black", lty = 2)
+        
+        # Add track title on the first sector
+        if (CELL_META$sector.index == levels(sorted_chrs)[1]) {
+          circos.text(
+            CELL_META$xcenter, 
+            max(ylim) * 0.8,  # Position text inside the track area to avoid conflicts
+            track_title,
+            facing = "inside", 
+            niceFacing = TRUE,
+            adj = c(0.5, 0),
+            cex = 0.8
+          )
+        }
+      }
+    )
+  } else {
+    message(paste("No data for comparison:", track_title))
+  }
+}
+
+# Print quantiles of log2FC values to understand the data distribution
+log2fc_quantiles <- quantile(abs(annotated_results$log2FoldChange), 
+                            probs = c(0.9, 0.95, 0.99, 0.999, 0.9999), na.rm = TRUE)
+message("Quantiles of absolute log2FC values:")
+print(log2fc_quantiles)
+
+# Before plotting, check for extreme outliers that might cause issues
+extreme_values <- annotated_results %>%
+  filter(abs(log2FoldChange) > log2fc_quantiles["99.99%"])
+if(nrow(extreme_values) > 0) {
+  message(paste("Found", nrow(extreme_values), "extreme outliers (>99.99% quantile)"))
+  message("Consider filtering these or adjusting the plotting range")
+  print(head(extreme_values %>% dplyr::select(gene_id, comparison, log2FoldChange)))
+}
+
+# Plot each timepoint comparison in separate tracks
+for (time_point in time_points) {
+  # Filter data for this comparison
+  comparison_data <- annotated_results %>%
+    filter(comparison == time_point) %>%
+    dplyr::select(chr, start, end, log2FoldChange)
+  
+  # Plot this timepoint comparison
+  plot_timepoint_comparison(comparison_data, time_point)
+}
+
+# Add overall title
+title(main = "Differential Expression Across Time Points", cex.main = 1.2)
+
+# Add a legend for the color scale
+par(xpd = TRUE)  # Allow plotting outside the plot region
+
+# Create sample values for legend
+legend_values <- seq(-color_cap, color_cap, length.out = 7)  # 7 color points on legend
+legend_x <- 0.9
+legend_y <- -1.3
+color_legend_width <- 0.2
+color_legend_height <- 0.02
+
+# Draw color bar segments
+for (i in 1:(length(legend_values)-1)) {
+  # Calculate color for this segment
+  mid_val <- (legend_values[i] + legend_values[i+1]) / 2
+  segment_color <- get_subtle_color(mid_val)
+  
+  rect(
+    legend_x + (i-1) * color_legend_width/(length(legend_values)-1),
+    legend_y - color_legend_height,
+    legend_x + i * color_legend_width/(length(legend_values)-1),
+    legend_y,
+    col = segment_color,
+    border = NA
+  )
+}
+
+# Add tick marks and labels
+for (i in 1:length(legend_values)) {
+  text(
+    legend_x + (i-1) * color_legend_width/(length(legend_values)-1),
+    legend_y - color_legend_height*1.5,
+    labels = sprintf("%.1f", legend_values[i]),
+    cex = 0.7,
+    adj = c(0.5, 0.5)
+  )
+}
+
+# Add legend title
+text(
+  legend_x + color_legend_width/2,
+  legend_y + color_legend_height*1.5,
+  "log2FoldChange",
+  cex = 0.8
+)
+```
+
+
+
