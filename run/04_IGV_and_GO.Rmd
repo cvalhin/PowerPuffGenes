@@ -36,7 +36,7 @@ This gene is a long non-coding RNA (lncRNA) gene. Strong evidence suggests that 
 
 ### Ier3
 
-The [Ier3](https://www.uniprot.org/uniprotkb/P46694/entry) gene may play a role in the ERK pathway for multiple cellular processes, such as growth,  proliferation, differentiation, and survival. This role suggests relevance in gene regulation, making it an interesting and possibly important gene to further explore the effects of Dox treatment. Dox might be affecting the normal function of this gene by down regulating its expression at least 96 hours after treatment. 
+The immediate early response [(Ier3)](https://www.uniprot.org/uniprotkb/P46694/entry) gene may play a role in the ERK pathway for multiple cellular processes, such as growth,  proliferation, differentiation, and survival. This role suggests relevance in gene regulation, making it an interesting and possibly important gene to further explore the effects of Dox treatment. Dox might be affecting the normal function of this gene by down regulating its expression at least 96 hours after treatment. 
 
 ![Ier3 gene track](../results/IGV/Ier3_IGV_track.png)
 **IGV track with peaks of Ier3 gene.** Peaks represent the coverage of sequencing reads across this gene. Note that peaks are higher in the beginning at 0 hours, and they decrease as time increases. They remain low until the last time point sampled of 96 hours. 
