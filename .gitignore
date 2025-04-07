@@ -21,7 +21,6 @@ work/*
 *.csv
 *.gtf
 *data*
-*.pdf
 *.rda
 *.tbl
 *.feather
