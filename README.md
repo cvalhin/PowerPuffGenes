@@ -1,4 +1,5 @@
-# PowerPuffGenes: RNA-seq Time Course Analysis of Doxycycline-Induced Gene Expression
+# PowerPuffGenes
+RNA-seq Time Course Analysis of Doxycycline-Induced Gene Expression
 
 ## Introduction
 
@@ -58,18 +59,26 @@ Gene ontology analysis revealed potential regulatory roles for three prolonged D
 ## How to Run the Code
 
 ### Prerequisites
-
-Install R and RStudio, then ensure the following R packages are installed:
-
+This project was developed with R 3.4.1, and it requires several CRAN and Bioconductor packages. Make sure to install the necessary packages before running the analysis.
 ```r
-install.packages(c("tidyverse", "DESeq2", "ggplot2", "readxl", "clusterProfiler", "org.Mm.eg.db", "AnnotationDbi"))
-if (!requireNamespace("BiocManager", quietly = TRUE))
+# CRAN packages
+install.packages(c(
+  "dplyr", "tidyr", "tibble", "readr", "ggplot2", "purrr", "magrittr",
+  "pheatmap", "textshape", "Rcpp", "matrixStats", "broom", "reshape",
+  "ggrepel", "ggdendro", "circlize", "stringr", 
+))
+
+# Tidyverse meta-package (optional if not already installed)
+install.packages("tidyverse")
+
+# Install Bioconductor package manager if needed
+if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
+# Bioconductor packages
+BiocManager::install("IRanges")
+BiocManager::install("rtracklayer")
 BiocManager::install("DESeq2")
-BiocManager::install("clusterProfiler")
-BiocManager::install("org.Mm.eg.db")
-BiocManager::install("AnnotationDbi")
 ```
 
 ### Run Instructions
