@@ -1,39 +1,103 @@
-# PowerPuffGenes: RNA-seq analysis of dox induction
+# PowerPuffGenes: RNA-seq Time Course Analysis of Doxycycline-Induced Gene Expression
 
 ## Introduction
-Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes like stem cell differentiation or response to stimuli. This project utilizes a doxycycline (dox)-inducible system in mouse stem cells, where dox triggers gene expression via the rtTA-TRE mechanism. While powerful, concerns exist that dox itself might exert off-target effects on the transcriptome. Leveraging Dr. Rinn's lab RNA-seq dataset spanning five time points (0, 12, 24, 48, 96 hours) with three replicates. We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differential expression analysis, providing a practical application of bioinformatics skills to time-course data exploration.
 
-## Goals
-1) Identify genes significantly regulated following dox administration.
-2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained/prolonged responses.
-3) Investigate the role, significance, and chromosomal location of these genes.
+Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes such as stem cell differentiation and responses to stimuli. This project uses a doxycycline (dox)-inducible system in mouse stem cells to explore gene expression changes over time. In this system, dox activates gene expression via the rtTA-TRE mechanism. However, dox itself may also exert off-target effects on the transcriptome.
 
-## Results
-After performing DESeq2, we found that from the 55401 total genes, 794 were significantly expressed genes. From our significantly expressed genes, we generated a list of prolonged genes that represent candidates that were up or down regulated after Dox treatment at an early time point (12 or 24 hours) and maintained their trend until the 96 hour time point (last collected). A total of 27 prolonged genes were found. We looked at prolonged up or down regulated genes, because if their levels are high or low throughout all time points, they might be causing a significant change in important genes.
+To investigate these effects, we analyzed an RNA-seq dataset from Dr. Rinn’s lab, which spans five time points (0, 12, 24, 48, and 96 hours) with three replicates each. Data were processed using the `nf-core/rnaseq` pipeline, and differential expression was assessed with **DESeq2**.
 
+## Project Goals
 
-We explored prolonged genes roles in the cell by looking at their gene ontologies (GO), and we found three genes with strong evidence of important regulatory roles in mice, H19, Usp26, and Ier3. From those three genes H19 had prolonged up regulation, while Ier3 and Usp26 had prolonged down regulation. Their prolonged change in expression suggests that these genes might be changing permanently, compromising cell integrity by changing regulatory pathways. However, additional time points should be sampled to test this hypothesis.
+1. Identify genes significantly regulated following doxycycline administration.
+2. Characterize temporal gene expression profiles, distinguishing between transient and prolonged responses.
+3. Investigate the biological roles and chromosomal locations of significantly regulated genes.
 
+## Key Findings
 
-### H19 
+- Out of 55,401 genes, 794 were significantly differentially expressed.
+- Of those, 27 genes displayed **prolonged expression changes**—either up- or down-regulation beginning at early time points (12 or 24 hours) and persisting through the final time point (96 hours).
+- These prolonged expression patterns may indicate lasting transcriptional or epigenetic changes in response to dox.
 
-This gene is a long non-coding RNA (lncRNA) gene. Strong evidence suggests that this gene is involved in the control of embryonic growth. In addition, it has been found to regulate nine genes of an imprinted gene network [@monnier_h19_2013]. Its prolonged up regulation after Dox treatment suggests a potential role in maintaining cellular processes related to growth and development, possibly by modulating the activity of imprinted genes that are critical for cell differentiation and tissue patterning. 
+### Gene Ontology and Functional Insights
 
-![H19 gene track](results/IGV/h19_gene_track.png)
-**IGV track with peaks of H19 gene.** Peaks represent the coverage of sequencing reads across this gene. Note that peaks are low at 0 and 12 hours, but start getting higher at 24. By the time they have reached 48 hours, they are high and they keep this high trend until the last sampled time point of 96 hours. 
+Gene ontology analysis revealed potential regulatory roles for three prolonged DEGs: **H19**, **Ier3**, and **Usp26**.
 
-### Ier3
+---
 
-The immediate early response [(Ier3)](https://www.uniprot.org/uniprotkb/P46694/entry) gene may play a role in the ERK pathway for multiple cellular processes, such as growth,  proliferation, differentiation, and survival. This role suggests relevance in gene regulation, making it an interesting and possibly important gene to further explore the effects of Dox treatment. Dox might be affecting the normal function of this gene by down regulating its expression at least 96 hours after treatment. 
+### 🧬 H19
 
-![Ier3 gene track](results/IGV/Ier3_IGV_track.png)
-**IGV track with peaks of Ier3 gene.** Peaks represent the coverage of sequencing reads across this gene. Note that peaks are higher in the beginning at 0 hours, and they decrease as time increases. They remain low until the last time point sampled of 96 hours. 
+- **Type**: Long non-coding RNA (lncRNA)  
+- **Role**: Embryonic growth regulator; involved in an imprinted gene network  
+- **Expression**: Prolonged **up-regulation** after dox treatment  
 
+![H19 gene track](results/IGV/h19_gene_track.png)  
+**Figure:** IGV track showing increasing H19 expression from 24 to 96 hours.
 
-### Usp26
+---
 
-The [Usp26](https://www.uniprot.org/uniprotkb/Q99MX1/entry) gene has been involved in deubiquitination pathways, making it potentially relevant for gene regulation. There are many transcription factors in the cell, such as  polycomb repressive complex 1 (PRC1), that are in charge of maintaining and regulating epigenetic marks in the genome [@tamburri_histone_2020]. Many of these transcription factors, need ubiquitination for their function, making a deubiquitination crucial for this process as well [@mark_ubiquitindependent_2021]. For example, this gene has been found to be involved in somatic cell reprogramming through the K48 deubiquitination of two protein components of PRC1.
+### 🧬 Ier3
 
+- **Role**: Involved in the ERK signaling pathway affecting proliferation, differentiation, and survival  
+- **Expression**: Prolonged **down-regulation**  
 
-![Usp26 gene track](results/IGV/Usp26_IGV_track2.png)
-**IGV track with peaks of Usp26 gene.** Peaks represent the coverage of sequencing reads across this gene. Note that peaks are higher at 0 and 12 hours, but are lower when 24 hours are reached. They keep beung low until the last time point of 96 hours.
+![Ier3 gene track](results/IGV/Ier3_IGV_track.png)  
+**Figure:** Ier3 expression declines steadily from 0 to 96 hours.
+
+---
+
+### 🧬 Usp26
+
+- **Role**: Deubiquitinase; potential regulator of transcription factors like PRC1  
+- **Expression**: Prolonged **down-regulation**  
+
+![Usp26 gene track](results/IGV/Usp26_IGV_track2.png)  
+**Figure:** Usp26 expression drops after 12 hours and remains low through 96 hours.
+
+---
+
+## How to Run the Code
+
+### Prerequisites
+
+Install R and RStudio, then ensure the following R packages are installed:
+
+```r
+install.packages(c("tidyverse", "DESeq2", "ggplot2", "readxl", "clusterProfiler", "org.Mm.eg.db", "AnnotationDbi"))
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2")
+BiocManager::install("clusterProfiler")
+BiocManager::install("org.Mm.eg.db")
+BiocManager::install("AnnotationDbi")
+```
+
+### Run Instructions
+1. Clone the repository
+   ```bash
+   git clone https://github.com/your-username/PowerPuffGenes.git
+   cd PowerPuffGenes
+   ```
+2. Open final_script.Rmd in RStudio.
+3. Click the Knit button at the top of the RStudio interface to execute the full analysis and render the output as an HTML report.
+   Alternatively, you can knit the document from the R console:
+   ```r
+   rmarkdown::render("final_script.Rmd")
+   ```
+Make sure any input files referenced in the Rmd file are in the correct paths (e.g., results/, data/).
+
+## Tools & Pipeline
+
+- Data processing: [`nf-core/rnaseq`](https://nf-co.re/rnaseq)  
+- Differential expression: `DESeq2`  
+- Visualization: `ggplot2`, `IGV`
+
+## License
+
+This project is released under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## Acknowledgments
+
+Special thanks to Dr. Rinn’s lab for providing the dataset and to the [Computational Genomic Lab](https://www.lncrna.io/teaching) for guidance on RNA-seq analysis and interpretation.
