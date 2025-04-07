@@ -22,6 +22,11 @@ Understanding the temporal dynamics of gene expression is crucial for decipherin
 
 The raw sequencing reads were processed using the [nf-core/rnaseq pipeline](https://nf-co.re/rnaseq) version 3.14, a standardized and reproducible bioinformatics pipeline built using [Nextflow](https://www.nextflow.io/).
 
+<<<<<<< HEAD
+=======
+Pipeline diagram:
+![nf-core/rnaseq diagram](results/nf-core-rnaseq_metro_map_grey.png)
+>>>>>>> 5050c8e3a3d1e2c4d0af4f0175f2fa4b134787a8
 
 In brief, the pipeline performs the following key steps:
 1.  **Quality Control:** Raw reads were assessed using FastQC and summarised using MultiQC.
