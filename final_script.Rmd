@@ -3,18 +3,18 @@ title: "PowerPuffGenes Report"
 authors: "FN, CV, LP"
 date: "2025-03-17"
 output:
-  pdf_document:
-    toc: true
   html_document:
     toc: true
     toc_float: true
+  pdf_document:
+    toc: true
 editor_options:
   chunk_output_type: console
-bibliography: run/references.bib
+bibliography: source_code/references.bib
 ---
 
-# Introduction (change)
-Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes like stem cell differentiation or response to stimuli. This project utilizes a doxycycline (dox)-inducible system in mouse stem cells, where dox triggers gene expression via the rtTA-TRE mechanism. While powerful, concerns exist that dox itself might exert off-target effects on the transcriptome. Leveraging Dr. Rinn's lab RNA-seq dataset spanning five time points (0, 12, 24, 48, 96 hours) with replicates, this analysis aims to: 1) Identify genes significantly regulated following dox administration. 2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses. 3) Investigate the role, significance, and chromosomal location of these genes. We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differential expression analysis, providing a practical application of bioinformatics skills to time-course data exploration."
+# Introduction
+Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes like stem cell differentiation or response to stimuli. This project utilizes a doxycycline (dox)-inducible system in mouse stem cells, where dox triggers gene expression via the rtTA-TRE mechanism. While powerful, concerns exist that dox itself might exert off-target effects on the transcriptome. Leveraging Dr. Rinn's lab RNA-seq dataset spanning five time points (0, 12, 24, 48, 96 hours) with replicates, this analysis aims to: 1) Identify genes significantly regulated following dox administration. 2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses. 3) Investigate the role, significance, and chromosomal location of these genes. We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differential expression analysis, providing a practical application of bioinformatics skills to time-course data exploration.
 
 # RNA sequence analysis
 
@@ -22,9 +22,6 @@ Understanding the temporal dynamics of gene expression is crucial for decipherin
 
 The raw sequencing reads were processed using the [nf-core/rnaseq pipeline](https://nf-co.re/rnaseq) version 3.14, a standardized and reproducible bioinformatics pipeline built using [Nextflow](https://www.nextflow.io/).
 
-<<<<<<< HEAD
-=======
-Pipeline diagram:
 ![nf-core/rnaseq diagram](results/nf-core-rnaseq_metro_map_grey.png)
 
 In brief, the pipeline performs the following key steps:
@@ -67,7 +64,6 @@ library(ggrepel)
 library(ggdendro)
 library(circlize)
 library(stringr)
-#library(biomaRt)
 ```
 
 ### Parameters and paths definition
@@ -86,7 +82,6 @@ counts_orig  <- read.table(COUNTS_PATH, header=TRUE, row.names=1)
 tpm_orig     <- read.table(TPM_PATH, header=TRUE, row.names=1)
 g2s          <- data.frame(gene_id = rownames(counts_orig), 
                            gene_name = counts_orig[ , 1]) 
-write.csv(g2s, "results/g2s.csv")
 
 # Remove gene name column from counts and convert counts to numerical rounded matrix
 counts           <- counts_orig %>% select(-gene_name)
@@ -99,7 +94,7 @@ counts_filtered  <- counts_matrix[rowSums(counts_matrix) > FILTER_TRESHOLD, ]
 tpm_filtered     <- tpm[rowSums(tpm) > FILTER_TRESHOLD, ]
 
 
-save(counts, tpm, counts_filtered, tpm_filtered, g2s, file = "results/logs/data_files.RData")
+save(counts, tpm, counts_filtered, tpm_filtered, g2s, file = "results/data_files.RData")
 ```
 
 ### DESeq2 analysis for counts
@@ -144,14 +139,14 @@ plot_pca <- function(dds, intgroup="time_point", ntop=500) {
     theme(
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      panel.border = element_rect(color = "black", fill = NA, size = 1)
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
     ) +
     scale_color_brewer(palette = "Set1")
 }
 
 pca_plot <- plot_pca(dds, intgroup=c("time_point", "replicate"))
 print(pca_plot)
-ggsave("results/pca/pca_plot.png", pca_plot, width = 8, height = 6, dpi = 300)
+ggsave("results/pca_plot.png", pca_plot, width = 8, height = 6, dpi = 300)
 ```
 
 ### Obtaining and filtering count results
@@ -206,11 +201,7 @@ filtered_genes <- as.data.frame(filtered_results$gene_name, collapse = "\n")
 filtered_genes <- unique(filtered_genes)
 colnames(filtered_genes)[1] <- "gene_name"
 
-# Now let's write this out and do gene enrichment analysis
-write.table(filtered_genes["gene_name"], row.names = FALSE, col.names = FALSE, "results/filtered_genes.csv")
-
-save(results, filtered_results, filtered_genes, file = "results/logs/results_counts.RData")
-# May wanna take a look at these genes. Start at: https://maayanlab.cloud/Enrichr/
+save(results, filtered_results, filtered_genes, file = "results/results_counts.RData")
 ```
 
 ### Obtaining tmp results
@@ -232,7 +223,7 @@ avg_and_sd_values           <- do.call(cbind,  avg_and_sd_values)
 colnames(avg_and_sd_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
 avg_and_sd_values           <- as.data.frame(avg_and_sd_values) %>% rownames_to_column("gene_id") %>% merge(g2s)
 
-save(avg_and_sd_values, file = "results/logs/results_tpm.RData" )
+save(avg_and_sd_values, file = "results/results_tpm.RData" )
 ```
 
 ### Distribution of count results
@@ -288,6 +279,8 @@ faceted_plot <- ggplot(histogram_data, aes(x = value, fill = metric)) +
 ggsave("results/counts_distributions.png", faceted_plot, 
        width = 10, height = 8, dpi = 300)
 ```
+![Count Distribution](results/counts_distributions.png)
+
 
 ### Distribution of tpm results
 ```{r facet all timepoint TPM distributions}
@@ -295,15 +288,12 @@ ggsave("results/counts_distributions.png", faceted_plot,
 time_values <- names(avg_and_sd_values)[grep("avg", names(avg_and_sd_values))]
 melt_tpm_df <- melt(avg_and_sd_values, measure.vars = time_values, value_name = "gene_id")
 ggplot(melt_tpm_df, aes(x = log2(value))) +
-#ggplot(melt_tpm_df, aes(x = value)) +
   geom_histogram(bins = 50) +
   facet_wrap(~ variable, scales = "free_x")+
-  #xlim(0,1000) +
-  #ylim(0,1000) +
   theme("paperwhite")
 ```
 
-### Generate Faceted Volcano Plots
+### Volcano plots
 ```{r volcano plots} 
 # Pre-process results for volcano plot
 filtered_results_vp <- results %>% 
@@ -354,6 +344,7 @@ plot_baseline <- ggplot(
   ) +
   common_volcano_theme + 
   coord_cartesian(ylim = c(0, NA))
+print(plot_baseline)
 ggsave("results/volcano_baseline.png", width = 20, height = 12)
 
 #  Filter Time Series Comparisons
@@ -381,10 +372,20 @@ plot_timeseries <- ggplot(
   ) +
   common_volcano_theme 
   coord_cartesian(ylim = c(0, NA))
-ggsave("results/volcano_plots/vp_timeseries.png", width = 20, height = 12)
+print(plot_timeseries)
+ggsave("results/volcano_timeseries.png", width = 20, height = 12)
 ```
 
-## Gene curation
+## Finding Prolonged Genes
+```{r clean_2, include=FALSE}
+# clean environment
+rm(list=setdiff(ls(), c("FILTER_TRESHOLD", "P_VALUE_FILTER", "LOG2_FOLD_FILTER")))
+load("results/results_counts.RData")
+load("results/results_tpm.RData")
+load("results/data_files.RData")
+load("results/heatmaps.RData")
+```
+
 ```{r assign group of genes to transient or prolonged}
 filtered_vs_zero <- filtered_results[grep("vs_0", filtered_results$comparison), ]
 
@@ -412,10 +413,10 @@ transient_genes <- filtered_vs_zero[!(filtered_vs_zero$gene_name %in% prolonged_
                                     which(names(filtered_vs_zero)=="gene_name")]
 # Note: All transient genes are changed only at a particular time point (i.e., spike).
 save(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end, transient_genes,
-     file="results/logs/gene_groups.RData")
+     file="results/gene_groups.RData")
 ```
 
-## LFC plot
+### LFC plot
 ```{r lfc versus time plot}
 # set of genes which prolonged change in the expression after 12 hours until the end.
 genes_of_interest <- data.frame(
@@ -468,7 +469,7 @@ df_intermediate <- df_intermediate %>%
   ))
 
 # Create the plot with facets for each gene
-ggplot() +
+prolonged_lfc <- ggplot() +
   # Plot log2FoldChange for time 0 comparisons
   geom_point(data = df_time0, aes(x = Time, y = log2FoldChange, color = padj < 0.05), size = 1.5) +
   geom_line(data = df_time0, aes(x = Time, y = log2FoldChange, group = gene_name)) +
@@ -507,7 +508,9 @@ ggplot() +
 ggsave("results/lfc_prolonged_genes.png", width = 20, height = 12, dpi = 500)
 ```
 
-## TPM plot
+![lfc_prolonged_genes](results/lfc_prolonged_genes.png)
+
+### TPM plot
 ```{r TPM for genes of interest}
 sig_gene <- as.data.frame(unique(filtered_results$gene_id))
 names(sig_gene) <- "gene_id"
@@ -535,7 +538,7 @@ df_plot_genes_sd <- df_plot_genes_sd %>% select("gene_name", "Time", "sd")
 
 df_plot_genes_avg_sd <- merge(df_plot_genes_avg, df_plot_genes_sd, by = c("gene_name", "Time"))
 
-ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
+prolonged_tpm <- ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
   geom_line() +
   geom_point(size=1) +
   geom_errorbar(aes(ymin = avg-sd, ymax = avg+sd), width = 3, size = 0.5) +
@@ -553,6 +556,8 @@ ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
     )
 ggsave("results/tpm_prolonged_genes.png", width = 20, height = 12, dpi = 500)
 ```
+
+![lfc_prolonged_genes](results/tpm_prolonged_genes.png)
 
 ## Heatmaps
 ### All genes
@@ -599,23 +604,15 @@ pheatmap(sig_log_tpm_matrix_numeric,
          filename ="results/heatmap_all_genes.png"
 )
 
-#Heatmap with all the genes from the log_tpm_matrix (large heatmap)
-pheatmap(log_tpm_matrix, 
-         cluster_rows = TRUE,  
-         cluster_cols = TRUE,  
-         scale = "row",        
-         show_rownames = FALSE, 
-         show_colnames = TRUE,  
-         main = "Heatmap of Log2-Transformed TPM Values",
-         color = colorRampPalette(c("purple", "white", "yellow"))(50),
-         distfun = custom_dist,   
-         hclustfun = custom_hclust 
-)
-
 save(log_tpm_matrix_gene_names, sig_log_tpm_matrix, sig_log_tpm_matrix_numeric, filtered_genes_vector, file = "results/logs/heatmaps.RData")
 ```
 
+![heatmap_prolonged_genes](results/heatmap_all_genes.png)
+**Heatmap of log2 transformed tpm values for all significant genes.** Note the gene expression patterns of the sample clusters formed A total of 794 genes were significantly down or upregulated in mice after Dox treatment at any given time point. Note that groups are formed between replicates of the same time point. Samples at 0 and 96 hours form a sister group, suggesting similarities in expression patterns compared to other time point samples. 
+
+
 ### Prolonged genes
+
 ```{r heatmap prolongued genes}
 # Extract prolonged gene list from previously log transformed and filtered data 
 prolonged_sig_genes <- sig_log_tpm_matrix[sig_log_tpm_matrix$gene_name %in% genes_of_interest$gene_name, ]
@@ -650,14 +647,16 @@ pheatmap(prolonged_sig_genes_numeric,
          breaks = breaks,
          filename ="results/heatmap_prolonged_genes.png"
 )
-
 ```
 
+![heatmap_prolonged_genes](results/heatmap_prolonged_genes.png)
+
+**Heatmap of log2 transformed tpm values of prolonged genes.** A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours.
 
 ## Circos plot
 ```{r circos plot}
-load("results/logs/data_files.RData")
-load("results/logs/results_counts.RData")
+load("results/data_files.RData")
+load("results/results_counts.RData")
 
 # --- Prep Annotations  ---
 # Get gene annotations from gtf file and filter based on genes
@@ -849,17 +848,8 @@ dev.off()
 
 ![Circos plot](results/circos_differential_expression.png)
 
-
 # Results
-After performing DESeq2, we found that from the 55401 total genes, 794 were significantly expressed genes. From our significantly expressed genes, we generated a list of prolonged genes that represent candidates that were up or down regulated after Dox treatment at an early time point (12 or 24 hours) and maintained their trend until the 96 hour time point (last collected). A total of 27 prolonged genes were found. We looked at prolonged up or down regulated genes, because if their levels are high or low throughout all time points, they might be causing a permanent change in important genes. 
-
-## Heatmaps
-
-![All Significant Genes Heatmap](results/heatmap/all_sig_genes_log_tpm.png)
-**Heatmap of log2 transformed tpm values for all significant genes.** Note the gene expression patterns of the sample clusters formed A total of 794 genes were significantly down or upregulated in mice after Dox treatment at any given time point. Note that groups are formed between replicates of the same time point. Samples at 0 and 96 hours form a sister group, suggesting similarities in expression patterns compared to other time point samples. 
-
-![Prolonged Genes Heatmap](results/heatmap/prolonged_sig_genes_log_tpm.png)
-**Heatmap of log2 transformed tpm values of prolonged genes.** A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours.
+After performing DESeq2, we found that from the 55401 total genes, 794 were significantly expressed genes. From our significantly expressed genes, we generated a list of prolonged genes that represent candidates that were up or down regulated after Dox treatment at an early time point (12 or 24 hours) and maintained their trend until the 96 hour time point (last collected). A total of 27 prolonged genes were found. We looked at prolonged up or down regulated genes, because if their levels are high or low throughout all time points, they might be causing a significant change in important genes.
 
 
 ## IGV
@@ -891,5 +881,3 @@ The [Usp26](https://www.uniprot.org/uniprotkb/Q99MX1/entry) gene has been involv
 **IGV track with peaks of Usp26 gene.** Peaks represent the coverage of sequencing reads across this gene. Note that peaks are higher at 0 and 12 hours, but are lower when 24 hours are reached. They keep beung low until the last time point of 96 hours.
 
 ## Bibliography
-
-
