@@ -3,11 +3,11 @@ title: "PowerPuffGenes Report"
 authors: "FN, CV, LP"
 date: "2025-03-17"
 output:
+  pdf_document:
+    toc: true
   html_document:
     toc: true
     toc_float: true
-  pdf_document:
-    toc: true
 editor_options:
   chunk_output_type: console
 bibliography: run/references.bib
@@ -22,8 +22,6 @@ Understanding the temporal dynamics of gene expression is crucial for decipherin
 
 The raw sequencing reads were processed using the [nf-core/rnaseq pipeline](https://nf-co.re/rnaseq) version 3.14, a standardized and reproducible bioinformatics pipeline built using [Nextflow](https://www.nextflow.io/).
 
-*(Optional: Include pipeline diagram)*
-![nf-core/rnaseq diagram](https://nf-co.re/images/docs/rnaseq_logo_light.png)
 
 In brief, the pipeline performs the following key steps:
 1.  **Quality Control:** Raw reads were assessed using FastQC and summarised using MultiQC.
