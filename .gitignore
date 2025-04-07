@@ -16,17 +16,13 @@
 *fastq*
 .nextflow*
 log/*
-results/*
 work/*
 *.Rproj
 *.csv
 *.gtf
 *data*
 *.pdf
-*.RData
 *.rda
-*results*
-*.html
 *.tbl
 *.feather
 *.log
@@ -47,7 +43,6 @@ work/*
 *.bdg
 *.rds
 *bin*
-*data*
 *.txt
 *.tsv
 *.rds
