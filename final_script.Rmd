@@ -320,9 +320,9 @@ common_volcano_theme <- theme_minimal(base_size = 10) +
 # --- Filter for Baseline Comparisons ---
 baseline_comparisons <- c("time_12_vs_0", "time_24_vs_0", "time_48_vs_0", "time_96_vs_0")
 filtered_results_vp_baseline<- filtered_results_vp %>%
-  filter(comparison %in% timestep_comparisons) %>%
+  filter(comparison %in% baseline_comparisons) %>%
   # Ensure 'comparison' factor levels are only those present, in the desired order
-  mutate(comparison = factor(comparison, levels = timestep_comparisons))
+  mutate(comparison = factor(comparison, levels = baseline_comparisons))
 
 # --- Create the Baseline plot ---
 plot_baseline <- ggplot(
@@ -649,144 +649,9 @@ pheatmap(prolonged_sig_genes_numeric,
 
 ```
 
+
 ## Circos plot
-```{r}
-library(circlize)
-library(readr)
-library(biomaRt)
-library(rtracklayer)
-library(stringr)
-load("results/logs/data_files.RData")
-
-# Load your gene counts (you'll need this for DE analysis before this step)
-# counts orig <- read_tsv("salmon.merged.gene_counts .txt")
-# DESEQ results filterd to significant genes are in filtered_results. Columns gene_id, baseMean, log2FoldChange, lfcSE, stat, pvalue, padj, gene_name, comparison
-# path to gtf annotation file is /scratch/Shares/rinnclass/MASTER_CLASS/GENOMES/M25/gencode.vM25.annotation.gtf
-
-# --- 3. Get Gene Locations from GTF ---
-gtf_file <- "/scratch/Shares/rinnclass/MASTER_CLASS/GENOMES/M25/gencode.vM25.annotation.gtf"
-# Import the GTF file
-gtf_data <- rtracklayer::import(gtf_file)
-# Filter for gene entries and extract relevant information
-gene_locations <- as.data.frame(gtf_data) %>%
-  filter(type == "gene") %>%
-  dplyr::select(chr = seqnames, start, end, gene_id, gene_name) %>%
-  mutate(chr = as.character(chr)) # Ensure chromosome is character
-
-# Ensure chromosome names have the 'chr' prefix if needed by circlize ideogram
-# The mm10 ideogram uses 'chr1', 'chr2', etc. Check if your GTF already has this.
-if (!all(str_detect(gene_locations$chr, "^chr"))) {
-  gene_locations$chr <- paste0("chr", gene_locations$chr)
-}
-
-# Filter out non-standard chromosomes if necessary (optional, depends on GTF)
-valid_chromosomes <- paste0("chr", c(1:19, "X", "Y")) # Standard mouse chromosomes for mm10
-gene_locations <- filter(gene_locations, chr %in% valid_chromosomes)
-
-# Remove version number from GTF gene_id if present (GENCODE typically includes it)
-gene_locations <- gene_locations %>%
-    mutate(gene_id_base = str_remove(gene_id, "\\.\\d+$"))
-
-# --- 4. Merge DE results with Locations ---
-
-# Prepare DE results: Remove version from gene_id for merging
-de_results_prepared <- filtered_results %>%
-    mutate(gene_id_base = str_remove(gene_id, "\\.\\d+$"))
-
-# Merge DE results with gene locations
-# Note: Using inner_join means only genes found in both datasets will be kept
-annotated_results <- inner_join(de_results_prepared, gene_locations, by = "gene_id_base")
-
-# Select relevant columns for plotting
-# Keep original gene_id.x from DE results if needed later, rename others for clarity
-annotated_results <- annotated_results %>%
-    dplyr::select(gene_id = gene_id.x, log2FoldChange, padj, gene_name = gene_name.x,
-           comparison, chr, start, end)
-
-# --- 5. Prepare Data for Circlize ---
-# Separate upregulated and downregulated genes from the (already significant) results
-# You might not need the padj filter here if 'filtered_results' is truly pre-filtered
-upregulated_genes <- annotated_results %>%
-  # filter(padj < padj_threshold & log2FoldChange > logFC_threshold_up) %>%
-  filter(log2FoldChange > LOG2_FOLD_FILTER) %>%
-  dplyr::select(chr, start, end, log2FoldChange)
-
-downregulated_genes <- annotated_results %>%
-  # filter(padj < padj_threshold & log2FoldChange < logFC_threshold_down) %>%
-   filter(log2FoldChange < LOG2_FOLD_FILTER) %>%
-  dplyr::select(chr, start, end, log2FoldChange)
-
-# --- 6. Create Circos Plot ---
-# First, exit browse mode with 'c' or 'Q'
-
-# Let's check if the upregulated_genes dataframe has data
-print(dim(upregulated_genes))
-print(head(upregulated_genes))
-
-# We need to modify our approach to handle the circos plotting
-# This version uses a different method that works well with the circlize package
-
-# Clear any existing circos plots
-circos.clear()
-
-# Set parameters
-circos.par(start.degree = 90)
-
-# Initialize with ideogram
-circos.initializeWithIdeogram(
-  species = "mm10",
-  chromosome.index = sort(unique(gene_locations$chr))
-)
-
-# Configure track appearance parameters
-point_cex <- 0.6
-up_col <- "red"
-down_col <- "blue"
-track_height <- 0.1
-
-# Function to properly plot points on genomic regions
-plot_genomic_points <- function(data, point_color) {
-  if(nrow(data) > 0) {
-    circos.genomicTrack(
-      data,
-      ylim = c(0, 1),
-      track.height = track_height,
-      bg.border = NA,
-      panel.fun = function(region, value, ...) {
-        # Simply plot points at fixed y-coordinate
-        circos.genomicPoints(
-          region, 
-          value = rep(0.5, nrow(region)),
-          col = point_color, 
-          pch = 16, 
-          cex = point_cex
-        )
-      }
-    )
-  } else {
-    message("No data to plot for this track")
-  }
-}
-
-# Plot upregulated genes
-plot_genomic_points(upregulated_genes, up_col)
-
-# Plot downregulated genes
-plot_genomic_points(downregulated_genes, down_col)
-
-# Add title and legend
-title(plot_title)
-legend(
-  "bottom",
-  legend = c("Upregulated", "Downregulated"),
-  col = c(up_col, down_col),
-  pch = 16,
-  cex = 0.8,
-  horiz = TRUE
-)
-```
-
-```{r}
+```{r circos plot}
 load("results/logs/data_files.RData")
 load("results/logs/results_counts.RData")
 
@@ -1044,17 +909,18 @@ text(
 dev.off()
 ```
 
+![All Significant Genes Heatmap](results/circos_differential_expression.png)
+
 
 # Results
-
 After performing DESeq2, we found that from the 55401 total genes, 794 were significantly expressed genes. From our significantly expressed genes, we generated a list of prolonged genes that represent candidates that were up or down regulated after Dox treatment at an early time point (12 or 24 hours) and maintained their trend until the 96 hour time point (last collected). A total of 27 prolonged genes were found. We looked at prolonged up or down regulated genes, because if their levels are high or low throughout all time points, they might be causing a permanent change in important genes. 
 
 ## Heatmaps
 
-![All Significant Genes Heatmap](results/heatmap_all_sig_genes_log_tpm.png)
+![All Significant Genes Heatmap](results/heatmap/all_sig_genes_log_tpm.png)
 **Heatmap of log2 transformed tpm values for all significant genes.** Note the gene expression patterns of the sample clusters formed A total of 794 genes were significantly down or upregulated in mice after Dox treatment at any given time point. Note that groups are formed between replicates of the same time point. Samples at 0 and 96 hours form a sister group, suggesting similarities in expression patterns compared to other time point samples. 
 
-![Prolonged Genes Heatmap](results/heatmap_prolonged_sig_genes_log_tpm.png)
+![Prolonged Genes Heatmap](results/heatmap/prolonged_sig_genes_log_tpm.png)
 **Heatmap of log2 transformed tpm values of prolonged genes.** A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours.
 
 
@@ -1067,7 +933,7 @@ We explored prolonged genes roles in the cell by looking at their gene ontologie
 
 This gene is a long non-coding RNA (lncRNA) gene. Strong evidence suggests that this gene is involved in the control of embryonic growth. In addition, it has been found to regulate nine genes of an imprinted gene network [@monnier_h19_2013]. Its prolonged up regulation after Dox treatment suggests a potential role in maintaining cellular processes related to growth and development, possibly by modulating the activity of imprinted genes that are critical for cell differentiation and tissue patterning. 
 
-![H19 gene track](results/IGV/H19_IGV_track.png)
+![H19 gene track](results/IGV/h19_gene_track.png)
 **IGV track with peaks of H19 gene.** Peaks represent the coverage of sequencing reads across this gene. Note that peaks are low at 0 and 12 hours, but start getting higher at 24. By the time they have reached 48 hours, they are high and they keep this high trend until the last sampled time point of 96 hours. 
 
 ### Ier3
