@@ -37,8 +37,3 @@ The [Usp26](https://www.uniprot.org/uniprotkb/Q99MX1/entry) gene has been involv
 
 ![Usp26 gene track](results/IGV/Usp26_IGV_track2.png)
 **IGV track with peaks of Usp26 gene.** Peaks represent the coverage of sequencing reads across this gene. Note that peaks are higher at 0 and 12 hours, but are lower when 24 hours are reached. They keep beung low until the last time point of 96 hours.
-
-- You can look at the first draft for the project by :
-  - Opening the main_project.pdf
-  - Knitting the main_project.Rmd 
-  - Opening the main_project.html in web browser
