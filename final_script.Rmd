@@ -22,8 +22,6 @@ Understanding the temporal dynamics of gene expression is crucial for decipherin
 
 The raw sequencing reads were processed using the [nf-core/rnaseq pipeline](https://nf-co.re/rnaseq) version 3.14, a standardized and reproducible bioinformatics pipeline built using [Nextflow](https://www.nextflow.io/).
 
-<<<<<<< HEAD
-=======
 Pipeline diagram:
 ![nf-core/rnaseq diagram](results/nf-core-rnaseq_metro_map_grey.png)
 
@@ -151,7 +149,7 @@ plot_pca <- function(dds, intgroup="time_point", ntop=500) {
 
 pca_plot <- plot_pca(dds, intgroup=c("time_point", "replicate"))
 print(pca_plot)
-ggsave("results/pca/pca_plot.png", pca_plot, width = 8, height = 6, dpi = 300)
+ggsave("results/pca_plot.png", pca_plot, width = 8, height = 6, dpi = 300)
 ```
 
 ### Obtaining and filtering count results
@@ -288,6 +286,7 @@ faceted_plot <- ggplot(histogram_data, aes(x = value, fill = metric)) +
 ggsave("results/counts_distributions.png", faceted_plot, 
        width = 10, height = 8, dpi = 300)
 ```
+![Count Distribution](results/counts_distributions.png)
 
 ### Distribution of tpm results
 ```{r facet all timepoint TPM distributions}
@@ -354,6 +353,7 @@ plot_baseline <- ggplot(
   ) +
   common_volcano_theme + 
   coord_cartesian(ylim = c(0, NA))
+print(plot_baseline)
 ggsave("results/volcano_baseline.png", width = 20, height = 12)
 
 #  Filter Time Series Comparisons
@@ -381,8 +381,11 @@ plot_timeseries <- ggplot(
   ) +
   common_volcano_theme 
   coord_cartesian(ylim = c(0, NA))
-ggsave("results/volcano_plots/vp_timeseries.png", width = 20, height = 12)
+print(plot_timeseries)
+ggsave("results/volcano_timeseries.png", width = 20, height = 12)
 ```
+
+
 
 ## Gene curation
 ```{r assign group of genes to transient or prolonged}
@@ -855,10 +858,10 @@ After performing DESeq2, we found that from the 55401 total genes, 794 were sign
 
 ## Heatmaps
 
-![All Significant Genes Heatmap](results/heatmap/all_sig_genes_log_tpm.png)
+![All Significant Genes Heatmap](results/heatmap_all_genes.png)
 **Heatmap of log2 transformed tpm values for all significant genes.** Note the gene expression patterns of the sample clusters formed A total of 794 genes were significantly down or upregulated in mice after Dox treatment at any given time point. Note that groups are formed between replicates of the same time point. Samples at 0 and 96 hours form a sister group, suggesting similarities in expression patterns compared to other time point samples. 
 
-![Prolonged Genes Heatmap](results/heatmap/prolonged_sig_genes_log_tpm.png)
+![Prolonged Genes Heatmap](results/heatmap_prolonged_genes.png)
 **Heatmap of log2 transformed tpm values of prolonged genes.** A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours.
 
 
