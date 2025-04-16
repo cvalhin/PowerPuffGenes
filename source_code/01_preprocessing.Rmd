@@ -64,11 +64,13 @@ library(reshape)
 
 ### Parameters and paths definition
 ```{r define variables}
-COUNTS_PATH      <- "../data/NF3-14_rep1/salmon.merged.gene_counts.tsv"
-TPM_PATH         <- "../data/NF3-14_rep1/salmon.merged.gene_tpm.tsv"
+COUNTS_PATH      <- "/scratch/Shares/rinnclass/MASTER_CLASS/DATA/human_rnaseq/salmon.merged.gene_counts.tsv"
+TPM_PATH         <- "/scratch/Shares/rinnclass/MASTER_CLASS/DATA/human_rnaseq/salmon.merged.gene_tpm.tsv"
+RESULT_PATH      <- "../result_human"
 FILTER_TRESHOLD  <- 0
-P_VALUE_FILTER   <- 0.05
+P_VALUE_FILTER   <- 0.01
 LOG2_FOLD_FILTER <- 1
+COLUMN_PREFIX    <- "gfp"
 ```
 
 ### Counts loading and preprocesing
@@ -77,7 +79,7 @@ LOG2_FOLD_FILTER <- 1
 counts_orig  <- read.table(COUNTS_PATH, header=TRUE, row.names=1)
 g2s          <- data.frame(gene_id = rownames(counts_orig), 
                            gene_name = counts_orig[ , 1]) 
-write.csv(g2s, "../results/g2s.csv")
+write.csv(g2s, file.path(RESULT_PATH, "g2s.csv"))
 
 # Remove gene name column from counts and convert counts to numerical rounded matrix
 counts           <- counts_orig %>% select(-gene_name)
@@ -102,7 +104,12 @@ replicate_values <- sapply(split_values, function(x) x[[3]])
 deseq_samples$time_point <- time_values
 deseq_samples$replicate  <- replicate_values
 deseq_samples$time_point <- factor(deseq_samples$time_point, levels=c("0","12","24","48","96"))
-deseq_samples$replicate  <- factor(deseq_samples$replicate)
+deseq_samples$replicate  <- factor(deseq_samples$replicate, levels =c("1","2","3"))
+deseq_samples <- drop_na(deseq_samples)
+
+# Remove extra timepoints and replicates (counts)
+keep_cols <- deseq_samples$sample_id
+counts_filtered  <- counts_filtered[, colnames(counts_filtered) %in% keep_cols, drop = FALSE]
 
 # Testing whether sample sheet and counts are arranged properly 
 stopifnot(all(colnames(counts) == rownames(deseq_samples$sample_id)))
@@ -173,15 +180,13 @@ filtered_genes <- unique(filtered_genes)
 colnames(filtered_genes)[1] <- "gene_name"
 
 # Now let's write this out and do gene enrichment analysis
-write.table(filtered_genes["gene_name"], row.names = FALSE, col.names = FALSE, "../results/filtered_genes.csv")
+write.table(filtered_genes["gene_name"], row.names = FALSE, col.names = FALSE, file.path(RESULT_PATH, "filtered_genes.csv"))
 
-save(results, filtered_results, filtered_genes, deseq_samples, g2s, file = "../results/DESeq2_results.RData")
+save(results, filtered_results, filtered_genes, deseq_samples, g2s, file = file.path(RESULT_PATH, "DESeq2_results.RData"))
 ```
 
 ```{r filtered results distributions}
 # Distribution of baseMean, lfcSE, p-values and fold change
-#hist(filtered_results$baseMean, xlim = c(0, 10000), breaks = 500) # May remove this plot
-#hist(filtered_results$lfcSE, xlim = c(0,5), breaks = 100) # May remove this histogram as well
 hist(filtered_results$padj, xlim = c(0,P_VALUE_FILTER ), breaks = 50)
 hist(filtered_results$log2FoldChange, xlim = c(-5, 5), breaks = 1000)
 
@@ -189,10 +194,6 @@ hist(filtered_results$log2FoldChange, xlim = c(-5, 5), breaks = 1000)
 basemean_all_genes <- median(results$baseMean)
 basemean_fil_genes <- median(filtered_results$baseMean)
 t.test(results$baseMean, filtered_results$baseMean)
-
-# Intersect by gene_name filtered results table and raw counts
-counts_filtered_genes <- counts_orig[filtered_results$gene_id,]
-# TODO delete repetitive instances of genes
 ```
 
 ## TPM analysis
@@ -203,6 +204,9 @@ tpm       <- tpm_orig %>% select(-gene_name)
 
 # Filter genes with no counts for any of the samples
 tpm_filtered <- tpm[rowSums(tpm) > FILTER_TRESHOLD, ]
+
+# Remove extra timepoints and replicates (tpm)
+tpm_filtered <- tpm_filtered[, colnames(tpm_filtered) %in% keep_cols, drop = FALSE]
 ```
 
 ```{r calculate avg and sd for tpms}
@@ -210,7 +214,7 @@ tpm_filtered <- tpm[rowSums(tpm) > FILTER_TRESHOLD, ]
 time_points <- c("0", "12", "24", "48", "96")
 avg_and_sd_values <- list()
 for (tp in time_points) {
-  cols     <- grep(paste0("WT_", tp, "_"), colnames(tpm_filtered))
+  cols     <- grep(paste0(COLUMN_PREFIX, "_", tp, "_"), colnames(tpm_filtered))
   avg      <- rowMeans(tpm_filtered[, cols])
   sd       <- apply(tpm_filtered[, cols], 1, sd)
   sd       <- data.frame(sd)
@@ -223,7 +227,7 @@ avg_and_sd_values           <- do.call(cbind,  avg_and_sd_values)
 colnames(avg_and_sd_values) <- paste0(rep(time_points, each = 2), c("_avg", "_sd"))
 avg_and_sd_values           <- as.data.frame(avg_and_sd_values) %>% rownames_to_column("gene_id") %>% merge(g2s)
 
-save(tpm_orig, tpm_filtered, avg_and_sd_values, g2s, deseq_samples, file = "../results/tpm_results.RData")
+save(tpm_filtered, avg_and_sd_values, file = file.path(RESULT_PATH, "TPM_results.RData"))
 ```
 
 ```{r facet all timepoint TPM distributions}
@@ -231,10 +235,10 @@ save(tpm_orig, tpm_filtered, avg_and_sd_values, g2s, deseq_samples, file = "../r
 time_values <- names(avg_and_sd_values)[grep("avg", names(avg_and_sd_values))]
 melt_tpm_df <- melt(avg_and_sd_values, measure.vars = time_values, value_name = "gene_id")
 ggplot(melt_tpm_df, aes(x = value)) +
-  geom_histogram(bins = 50) +
+  geom_histogram(bins = 100) +
   facet_wrap(~ variable, scales = "free_x")+
-  xlim(0,1000) +
-  ylim(0,1000) +
+  xlim(0,500) +
+  ylim(0,500) +
   theme("paperwhite")
 ```
 
