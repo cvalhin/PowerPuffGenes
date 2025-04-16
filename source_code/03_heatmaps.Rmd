@@ -35,10 +35,13 @@ library(viridis)
 ##Heatmaps
 ```{r}
 # Load necessary data 
-load("../results/tpm_results.RData")
-load("../results/counts_files.RData")
-load("../results/DESeq2_results.RData")
-load("../results/g2s.csv")
+RESULT_PATH <- "../result_human"
+COLUMN_PREFIX <- "gfp"
+P_VALUE_FILTER <- 0.01
+load(file.path(RESULT_PATH, "DESeq2_results.RData"))
+load(file.path(RESULT_PATH, "TPM_results.RData"))
+genes_of_interest <- read.csv(file.path(RESULT_PATH, "prolonged_gene_list.csv"))
+
 ```
 
 ###All significant genes
@@ -62,9 +65,10 @@ sig_log_tpm_matrix <- na.omit(sig_log_tpm_matrix)
 
 # Remove non numeric data for plotting heatmap
 sig_log_tpm_matrix_numeric <- sig_log_tpm_matrix %>% select(-gene_id, -gene_name)
+sig_log_tpm_matrix_numeric <- sig_log_tpm_matrix_numeric[apply(sig_log_tpm_matrix_numeric, 1, function(x) var(x) != 0), ]
 
 # Setting custom clustering and distance functions
-custom_dist <- function(x) dist(x, method = "euclidian") 
+custom_dist <- function(x) dist(x, method = "euclidean") 
 custom_hclust <- function(x) hclust(x, method = "ward.D2") 
 
 # Set the scale
@@ -79,27 +83,15 @@ pheatmap(sig_log_tpm_matrix_numeric,
          show_colnames = TRUE,  
          main = "Heatmap of Log2-Transformed TPM Values for All Significant Genes",
          distfun = custom_dist,
-         color = colorRampPalette(c("purple", "white", "yellow"))(50),
          hclustfun = custom_hclust,
-         breaks = breaks,
-         filename ="../results/heatmap_all_sig_genes_log_tpm.png"
-)
-
-
-#Heatmap with all the genes from the log_tpm_matrix (large heatmap)
-pheatmap(log_tpm_matrix, 
-         cluster_rows = TRUE,  
-         cluster_cols = TRUE,  
-         scale = "row",        
-         show_rownames = FALSE, 
-         show_colnames = TRUE,  
-         main = "Heatmap of Log2-Transformed TPM Values",
+         treeheight_row = 0,   
          color = colorRampPalette(c("purple", "white", "yellow"))(50),
-         distfun = custom_dist,   
-         hclustfun = custom_hclust 
-)
+         breaks = breaks,
+         filename = file.path(RESULT_PATH,"heatmap_all_sig_genes_log_tpm.png"))
 
-save(log_tpm_matrix_gene_names, sig_log_tpm_matrix, sig_log_tpm_matrix_numeric, filtered_genes_vector, file = "../results/heatmap_datasets.RData")
+save(log_tpm_matrix_gene_names, sig_log_tpm_matrix, sig_log_tpm_matrix_numeric,
+     file = file.path(RESULT_PATH, "heatmap_datasets.RData"))
+
 ```
 
 ###Prolonged gene list 
@@ -118,7 +110,7 @@ prolonged_sig_genes_numeric <- prolonged_sig_genes %>% select(-gene_id, -gene_na
 rownames(prolonged_sig_genes_numeric) <- prolonged_sig_genes$gene_name
 
 # Setting custom clustering and distance functions
-custom_dist <- function(x) dist(x, method = "euclidian") 
+custom_dist <- function(x) dist(x, method = "euclidean") 
 custom_hclust <- function(x) hclust(x, method = "ward.D2") 
 
 # Set the scale
@@ -129,15 +121,15 @@ pheatmap(prolonged_sig_genes_numeric,
          cluster_rows = TRUE,  
          cluster_cols = TRUE,  
          scale = "row",        
-         show_rownames = TRUE, 
+         show_rownames = FALSE, 
          show_colnames = TRUE,  
          main = "Heatmap of Log2-Transformed TPM Values of Prolonged Genes",
          distfun = custom_dist,
          color = colorRampPalette(c("purple", "white", "yellow"))(50),
          hclustfun = custom_hclust,
          breaks = breaks,
-         filename ="../results/heatmap_prolonged_sig_genes_log_tpm.png"
-)
+        filename = file.path(RESULT_PATH,"heatmap_prolonged_sig_genes_log_tpm.png"))
+
 
 ```
 
