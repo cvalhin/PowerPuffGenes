@@ -43,8 +43,11 @@ library(reshape)
 
 ## Load data
 ```{r loading our RNAseq analysis data COUNTS & TPM}
-load("../results/DESeq2_results.RData")
-load("../results/tpm_results.RData")
+RESULT_PATH <- "../result_human"
+COLUMN_PREFIX <- "gfp"
+P_VALUE_FILTER <- 0.01
+load(file.path(RESULT_PATH, "DESeq2_results.RData"))
+load(file.path(RESULT_PATH, "TPM_results.RData"))
 ```
 
 ## Data curation
@@ -95,17 +98,58 @@ transient_genes <- filtered_vs_zero[!(filtered_vs_zero$gene_name %in% prolonged_
 # Note: Transient genes are those that exhibit a spike in expression only at one specific time point.
 # Save the identified gene groups into an RData file for later use
 save(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end, transient_genes,
-     file = "../results/gene_groups.RData")
+     file = file.path(RESULT_PATH, "gene_groups.RData"))
 
 # Create a data frame of genes with prolonged changes in expression, including the time point where changes start
-genes_of_interest <- data.frame(
+prolonged_genes_df <- data.frame(
   gene_name = c(change_at_12_to_end, change_at_24_to_end, change_at_48_to_end),  # Combine all groups
   change_from = c(rep("12", length(change_at_12_to_end)),  # Label genes starting from 12 hours
                   rep("24", length(change_at_24_to_end)),  # Label genes starting from 24 hours
                   rep("48", length(change_at_48_to_end)))  # Label genes starting from 48 hours
 )
+
+# Filtering by tpm
+# Extract unique gene IDs from the filtered results and create a data frame
+sig_gene <- as.data.frame(unique(filtered_results$gene_id))  # Get unique gene IDs
+names(sig_gene) <- "gene_id"  # Rename the column to "gene_id"
+
+# Subset the data frame containing TPM values
+tpm_filtered$gene_id <- rownames(tpm_filtered)
+rownames(tpm_filtered) <- NULL
+sig_gene_tpm_all <- inner_join(tpm_filtered, sig_gene, by = "gene_id")
+sig_gene_tpm_all <- merge(sig_gene_tpm_all, g2s)  # Merge with gene-to-symbol mapping (g2s)
+
+# Prepare TPM data for plotting genes of interest by merging with genes of interest
+selected_tpm <- merge(sig_gene_tpm_all, prolonged_genes_df)
+
+# Dynamically generate column names for 0h and 96h triplicates
+t0_cols <- paste0(COLUMN_PREFIX, "_0_", 1:3)
+t96_cols <- paste0(COLUMN_PREFIX, "_96_", 1:3)
+
+# Function to perform t-test for one gene
+calculate_pvalue_endpoint <- function(gene_row) {
+  tpm_0 <- as.numeric(gene_row[t0_cols])
+  tpm_96 <- as.numeric(gene_row[t96_cols])
+  t_result <- t.test(tpm_0, tpm_96, paired = FALSE)
+  return(t_result$p.value)
+}
+
+# Apply function to each row/gene
+pvalues <- apply(selected_tpm, 1, calculate_pvalue_endpoint)
+
+# Add p-values to the data frame
+selected_tpm$pvalue <- pvalues
+
+# Adjust p-values for multiple testing (Benjamini-Hochberg)
+selected_tpm$adjusted_pvalue <- p.adjust(selected_tpm$pvalue, method = "BH")
+
+# Get significant results
+significant_genes <- selected_tpm[selected_tpm$adjusted_pvalue < P_VALUE_FILTER, ]
+genes_of_interest <- significant_genes %>% select(gene_name, change_from)
+genes_of_interest <- genes_of_interest[order(genes_of_interest$change_from),] 
+
 # Save to csv file
-write_csv(genes_of_interest, "../results/prolonged_gene_list.csv")
+write_csv(genes_of_interest, file.path(RESULT_PATH, "prolonged_gene_list.csv"))
 ```
 
 ## Data visualization
@@ -203,7 +247,7 @@ ggplot() +
    )
 
 # Save the plot as a high-resolution PNG file in the results directory
-ggsave("../results/lfc_prolonged_genes.png", width = 20, height = 12, dpi = 500)
+ggsave(file.path(RESULT_PATH, "lfc_prolonged_genes.png"), width = 20, height = 12, dpi = 500)
 ```
 
 ### TPM plot
@@ -263,7 +307,7 @@ ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
     )
 
 # Save the plot as a high-resolution PNG file in the results directory
-ggsave("../results/tpm_prolonged_genes.png", width = 20, height = 12, dpi = 500)
+ggsave(file.path(RESULT_PATH, "tpm_prolonged_genes.png"), width = 20, height = 12, dpi = 500)
 ```
 
 
