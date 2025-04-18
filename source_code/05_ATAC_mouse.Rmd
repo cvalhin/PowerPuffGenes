@@ -46,6 +46,7 @@ We will be using the MACS2 output files from the NF_CORE Pipeline For example:
 #### Parameters and paths definition
 ```{r define variables}
 PEAK_PATH         <- "/scratch/Shares/rinnclass/MASTER_CLASS/DATA/mouse_atacseq"
+ANNOTATION_FILE   <- "/scratch/Shares/rinnclass/MASTER_CLASS/DATA/genomes/Mus_musculus/Gencode/M25/gencode.vM25.annotation.gtf"
 RESULT_PATH       <- "../result_mouse"
 
 ```
@@ -83,7 +84,6 @@ Non-dox samples
 ```{r non-dox atac peaks, dependson="previous_chunk"}
 
 # common peaks in non-dox (0 time point)
-# TODO: What does KO mean?
 non_dox_samples <- names(my_consensus_peaks)[c(grep("_0", names(my_consensus_peaks)))]
 non_dox_peaks <- my_consensus_peaks[non_dox_samples]
 non_dox_common_peaks <- suppressWarnings(find_common_peaks(non_dox_peaks))
@@ -102,10 +102,22 @@ dox_samples <- names(my_consensus_peaks)[!grepl("_0$", names(my_consensus_peaks)
 dox_peaks <- my_consensus_peaks[dox_samples]
 dox_union_peaks <- suppressWarnings(find_union_peaks(dox_peaks))
 dox_common_peaks <- suppressWarnings(find_common_peaks(dox_peaks))
-# TODO: Should we use union_peaks or common_peaks?
 
-print(c("This is how many unique peaks are in dox samplex",length(dox_union_peaks)))
-print(c("This is how many peaks are common in dox",length(dox_common_peaks)))
+# common peaks in dox time points
+dox_common_early <- names(my_consensus_peaks)[grepl("_30$|_60$|_90$",
+                                                    names(my_consensus_peaks))]
+dox_common_early_peaks <- suppressWarnings(find_common_peaks(
+  my_consensus_peaks[dox_common_early]))
+
+dox_common_late <- names(my_consensus_peaks)[grepl("_120$|_150$",
+                                                   names(my_consensus_peaks))]
+dox_common_late_peaks <- suppressWarnings(find_common_peaks(
+  my_consensus_peaks[dox_common_late]))
+
+print(c("This is how many unique peaks are in dox samples",length(dox_union_peaks)))
+print(c("This is how many peaks are common in dox samples",length(dox_common_peaks)))
+print(c("This is how many peaks are common in early-dox samples",length(dox_common_early_peaks)))
+print(c("This is how many peaks are common in late-dox samples",length(dox_common_late_peaks)))
 ```
 
 
@@ -132,6 +144,53 @@ print(c("This is how many peaks are unique to dox condition", length(unique_to_d
 ##### Result: 16399 peaks found in non-dox (30.5%) that were not found in dox common
 ##### Result: 1774 unique peaks in dox (1%) and not present in non-dox
 
+
+Overlap of early-dox and non-dox (to get unique to each condition)
+```{r dox vs non-dox atac peaks, dependson="previous_chunk"}
+# Now overlap between dox and non-dox common peaks
+dox_compare_list <- list(non_dox = non_dox_common_peaks, dox = dox_common_early_peaks)
+dox_non_dox_ov <- suppressWarnings(find_common_peaks(dox_compare_list))
+print(c("This is how many peaks are common in both non- and early-dox treatments", length(dox_non_dox_ov)))
+
+# extracting peaks unique to each condition (dox non-dox)
+# Peaks unique to non_dox
+unique_to_non_dox <-suppressWarnings(find_my_peaks(dox_non_dox_ov, non_dox_common_peaks))
+print(c("This is how many peaks are unique to non-dox condition", length(unique_to_non_dox)))
+
+# Peaks unique to dox
+unique_to_dox <- suppressWarnings(find_my_peaks(dox_non_dox_ov, dox_common_early_peaks))
+
+print(c("This is how many peaks are unique to early-dox condition", length(unique_to_dox)))
+```
+
+#### Summary early-dox non-dox overlaps (common peaks)
+##### Result: 39272 dox common peaks of the 53747 non-dox peaks overlapped (73%)
+##### Result: 14475 peaks found in non-dox (27%) that were not found in dox common
+##### Result: 2785 unique peaks in dox (6.7%) and not present in non-dox
+
+
+Overlap of late-dox and non-dox (to get unique to each condition)
+```{r dox vs non-dox atac peaks, dependson="previous_chunk"}
+# Now overlap between dox and non-dox common peaks
+dox_compare_list <- list(non_dox = non_dox_common_peaks, dox = dox_common_late_peaks)
+dox_non_dox_ov <- suppressWarnings(find_common_peaks(dox_compare_list))
+print(c("This is how many peaks are common in both non- and late-dox treatments", length(dox_non_dox_ov)))
+
+# extracting peaks unique to each condition (dox non-dox)
+# Peaks unique to non_dox
+unique_to_non_dox <-suppressWarnings(find_my_peaks(dox_non_dox_ov, non_dox_common_peaks))
+print(c("This is how many peaks are unique to non-dox condition", length(unique_to_non_dox)))
+
+# Peaks unique to dox
+unique_to_dox <- suppressWarnings(find_my_peaks(dox_non_dox_ov, dox_common_late_peaks))
+
+print(c("This is how many peaks are unique to late-dox condition", length(unique_to_dox)))
+```
+
+#### Summary late-dox non-dox overlaps (common peaks)
+##### Result: 43324 dox common peaks of the 53747 non-dox peaks overlapped (80%)
+##### Result: 10423 peaks found in non-dox (20%) that were not found in dox common
+##### Result: 6612 unique peaks in dox (13%) and not present in non-dox
 
 Overlap of dox and non-dox (to get unique to each condition)
 ```{r dox vs non-dox atac peaks, dependson="previous_chunk"}

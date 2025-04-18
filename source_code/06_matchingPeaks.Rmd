@@ -1,0 +1,67 @@
+---
+title: "PowerPuffGenes Report"
+authors: "FN, CV, LP"
+date: "2025-04-18"
+output:
+  github_document:
+    toc: true
+  pdf_document:
+    toc: true
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(GenomicRanges)
+library(IRanges)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(readr)
+library(ggplot2)
+library(purrr)
+library(magrittr)
+library(pheatmap)
+library(textshape)
+library(Rcpp)
+library(DESeq2)
+library(stringr)
+```
+
+
+#### Approach:
+
+#### Parameter and path definition
+```{r define variables}
+RESULT_PATH       <- "../result_human"
+
+```
+
+```{r load data}
+# loading RNAseq results from 06_Differential_expression_analyses
+load(file.path(RESULT_PATH, "ATAC_gene_promoter.RData"))
+
+# loading gene promoter peaks
+load(file.path(RESULT_PATH, "DESeq2_results.RData"))
+
+```
+
+```{r dox and non-dox unique peak overalp gene promoters, dependson="previous_chunk"}
+# Now find same gene_id in RNAseq resuts
+# filter significant genes from RNAseq "filtered_results" to non-dox promoter overlaps
+sig_rnaseq_atac_non_dox <- non_dox_gene_promoter_ov[non_dox_gene_promoter_ov$gene_id %in% filtered_results$gene_id]
+
+print(c("this is how many genes overlap between RNAseq and ATACseq non-dox peaks", length(sig_rnaseq_atac_non_dox)))
+
+# filter significant genes from RNAseq "filtered_results" to dox promoter overlaps
+sig_rnaseq_atac_dox <- dox_gene_promoter_ov[dox_gene_promoter_ov$gene_id %in% filtered_results$gene_id]
+
+print(c("this is how many genes overlap between RNAseq and ATACseq dox peaks", length(sig_rnaseq_atac_dox)))
+
+# filter significant genes from RNAseq "filtered_results" to dox, non-dox promoter overlaps
+sig_rnaseq_atac_dox_non_dox <- dox_non_dox_gene_promoter_ov[dox_non_dox_gene_promoter_ov$gene_id %in% filtered_results$gene_id]
+
+print(c("this is how many genes overlap between RNAseq and ATACseq dox, non-dox peaks", length(sig_rnaseq_atac_dox_non_dox)))
+
+```
