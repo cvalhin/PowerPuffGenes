@@ -22,6 +22,10 @@ Understanding the temporal dynamics of gene expression is crucial for decipherin
 
 The raw sequencing reads were processed using the [nf-core/rnaseq pipeline](https://nf-co.re/rnaseq) version 3.14, a standardized and reproducible bioinformatics pipeline built using [Nextflow](https://www.nextflow.io/).
 
+<<<<<<< HEAD
+Pipeline diagram:
+=======
+>>>>>>> main
 ![nf-core/rnaseq diagram](results/nf-core-rnaseq_metro_map_grey.png)
 
 In brief, the pipeline performs the following key steps:
@@ -280,7 +284,10 @@ ggsave("results/counts_distributions.png", faceted_plot,
        width = 10, height = 8, dpi = 300)
 ```
 ![Count Distribution](results/counts_distributions.png)
+<<<<<<< HEAD
+=======
 
+>>>>>>> main
 
 ### Distribution of tpm results
 ```{r facet all timepoint TPM distributions}
@@ -374,6 +381,13 @@ plot_timeseries <- ggplot(
   coord_cartesian(ylim = c(0, NA))
 print(plot_timeseries)
 ggsave("results/volcano_timeseries.png", width = 20, height = 12)
+<<<<<<< HEAD
+```
+
+
+
+## Gene curation
+=======
 ```
 
 ## Finding Prolonged Genes
@@ -386,6 +400,7 @@ load("results/data_files.RData")
 load("results/heatmaps.RData")
 ```
 
+>>>>>>> main
 ```{r assign group of genes to transient or prolonged}
 filtered_vs_zero <- filtered_results[grep("vs_0", filtered_results$comparison), ]
 
@@ -849,7 +864,19 @@ dev.off()
 ![Circos plot](results/circos_differential_expression.png)
 
 # Results
+<<<<<<< HEAD
+After performing DESeq2, we found that from the 55401 total genes, 794 were significantly expressed genes. From our significantly expressed genes, we generated a list of prolonged genes that represent candidates that were up or down regulated after Dox treatment at an early time point (12 or 24 hours) and maintained their trend until the 96 hour time point (last collected). A total of 27 prolonged genes were found. We looked at prolonged up or down regulated genes, because if their levels are high or low throughout all time points, they might be causing a permanent change in important genes. 
+
+## Heatmaps
+
+![All Significant Genes Heatmap](results/heatmap_all_genes.png)
+**Heatmap of log2 transformed tpm values for all significant genes.** Note the gene expression patterns of the sample clusters formed A total of 794 genes were significantly down or upregulated in mice after Dox treatment at any given time point. Note that groups are formed between replicates of the same time point. Samples at 0 and 96 hours form a sister group, suggesting similarities in expression patterns compared to other time point samples. 
+
+![Prolonged Genes Heatmap](results/heatmap_prolonged_genes.png)
+**Heatmap of log2 transformed tpm values of prolonged genes.** A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours.
+=======
 After performing DESeq2, we found that from the 55401 total genes, 794 were significantly expressed genes. From our significantly expressed genes, we generated a list of prolonged genes that represent candidates that were up or down regulated after Dox treatment at an early time point (12 or 24 hours) and maintained their trend until the 96 hour time point (last collected). A total of 27 prolonged genes were found. We looked at prolonged up or down regulated genes, because if their levels are high or low throughout all time points, they might be causing a significant change in important genes.
+>>>>>>> main
 
 
 ## IGV
