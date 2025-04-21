@@ -127,25 +127,28 @@ t0_cols <- paste0(COLUMN_PREFIX, "_0_", 1:3)
 t96_cols <- paste0(COLUMN_PREFIX, "_96_", 1:3)
 
 # Function to perform t-test for one gene
-calculate_pvalue_endpoint <- function(gene_row) {
+calculate_stats <- function(gene_row) {
   tpm_0 <- as.numeric(gene_row[t0_cols])
+  mean_0 = mean(tpm_0)
   tpm_96 <- as.numeric(gene_row[t96_cols])
+  mean_96 = mean(tpm_96)
+  log2FC = log2(mean(tpm_96) + 1e-3) - log2(mean(tpm_0) + 1e-3)
   t_result <- t.test(tpm_0, tpm_96, paired = FALSE)
-  return(t_result$p.value)
+  return(data.frame( pvalue = t_result$p.value,
+                     tpm_log2fc = log2FC)
+         )
 }
 
 # Apply function to each row/gene
-pvalues <- apply(selected_tpm, 1, calculate_pvalue_endpoint)
-
-# Add p-values to the data frame
-selected_tpm$pvalue <- pvalues
+stat_df <- do.call(rbind, apply(selected_tpm, 1, calculate_stats))
+selected_tpm <- cbind(selected_tpm, stat_df)
 
 # Adjust p-values for multiple testing (Benjamini-Hochberg)
 selected_tpm$adjusted_pvalue <- p.adjust(selected_tpm$pvalue, method = "BH")
 
 # Get significant results
 significant_genes <- selected_tpm[selected_tpm$adjusted_pvalue < P_VALUE_FILTER, ]
-genes_of_interest <- significant_genes %>% select(gene_name, change_from)
+genes_of_interest <- significant_genes %>% select(gene_name, change_from, tpm_log2fc)
 genes_of_interest <- genes_of_interest[order(genes_of_interest$change_from),] 
 
 # Save to csv file
