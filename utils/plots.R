@@ -230,18 +230,9 @@ create_volcano_plot <- function(results_df,
 ##################################################
 plot_lfc_prolonged <- function(results, gene_groups, output_file = NULL, 
                                width = 20, height = 12, dpi = 500) {
-  # Create genes of interest dataframe
-  genes_of_interest <- data.frame(
-    gene_name = c(gene_groups$change_at_12_to_end, 
-                  gene_groups$change_at_24_to_end, 
-                  gene_groups$change_at_48_to_end),
-    change_from = c(rep("12", length(gene_groups$change_at_12_to_end)),
-                    rep("24", length(gene_groups$change_at_24_to_end)),
-                    rep("48", length(gene_groups$change_at_48_to_end)))
-  )
   
   # Merge results with genes of interest
-  res_df <- merge(results, genes_of_interest)
+  res_df <- merge(results, gene_groups)
   
   # Split data into baseline and intermediate comparisons
   df_time0 <- res_df %>% 

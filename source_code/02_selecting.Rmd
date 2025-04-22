@@ -43,8 +43,8 @@ library(reshape)
 
 ## Load data
 ```{r loading our RNAseq analysis data COUNTS & TPM}
-RESULT_PATH <- "../result_human"
-COLUMN_PREFIX <- "gfp"
+RESULT_PATH <- "../result_mouse"
+COLUMN_PREFIX <- "WT"
 P_VALUE_FILTER <- 0.01
 load(file.path(RESULT_PATH, "DESeq2_results.RData"))
 load(file.path(RESULT_PATH, "TPM_results.RData"))
