@@ -34,7 +34,7 @@ library(stringr)
 
 #### Parameter and path definition
 ```{r define variables}
-RESULT_PATH       <- "../result_human"
+RESULT_PATH       <- "../result_mouse"
 
 ```
 
@@ -44,6 +44,9 @@ load(file.path(RESULT_PATH, "ATAC_gene_promoter.RData"))
 
 # loading gene promoter peaks
 load(file.path(RESULT_PATH, "DESeq2_results.RData"))
+
+# loading prolonged gene list
+genes_of_interest <- read.csv(file.path(RESULT_PATH, "prolonged_gene_list.csv"), header = TRUE)
 
 ```
 
@@ -64,4 +67,32 @@ sig_rnaseq_atac_dox_non_dox <- dox_non_dox_gene_promoter_ov[dox_non_dox_gene_pro
 
 print(c("this is how many genes overlap between RNAseq and ATACseq dox, non-dox peaks", length(sig_rnaseq_atac_dox_non_dox)))
 
+```
+
+```{r matching peaks wirh prolonged genes RNAseq}
+# filter upregulated-prolonged genes to dox promoter overlaps
+up_genes <- genes_of_interest %>%
+  filter(tpm_log2fc > 0)
+print(c("this is how many upregulated genes with dox", length(up_genes$gene_name)))
+up_prolonged_rnaseq_atac_dox <- dox_gene_promoter_ov[dox_gene_promoter_ov$gene_name %in% up_genes$gene_name]
+up_atac_genes <- up_genes %>%
+  filter(gene_name %in% up_prolonged_rnaseq_atac_dox$gene_name)
+
+print(c("this is how many genes overlap between upregulated-prolonged RNAseq genes and ATACseq dox peaks", length(up_prolonged_rnaseq_atac_dox)))
+
+# save data
+write.csv(up_atac_genes, file.path(RESULT_PATH,"up_atac_genes.csv"), row.names = FALSE)
+
+# filter doenregulated-prolonged genes to dox promoter overlaps
+down_genes <- genes_of_interest %>%
+  filter(tpm_log2fc < 0)
+print(c("this is how many downregulated genes with dox", length(down_genes$gene_name)))
+down_prolonged_rnaseq_atac_dox <- dox_gene_promoter_ov[dox_gene_promoter_ov$gene_name %in% down_genes$gene_name]
+down_atac_genes <- down_genes %>%
+  filter(!(gene_name %in% down_prolonged_rnaseq_atac_dox$gene_name))
+
+print(c("this is how many genes overlap between downregulated-prolonged RNAseq genes and ATACseq dox peaks", length(down_prolonged_rnaseq_atac_dox)))
+
+# save data
+write.csv(down_atac_genes, file.path(RESULT_PATH,"down_atac_genes.csv"), row.names = FALSE)
 ```
