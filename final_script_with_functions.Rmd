@@ -31,8 +31,8 @@ library(ggrepel)
 library(ggdendro)
 library(circlize)
 library(stringr)
-source(file = "utils/proccess_files.R")
-source(file = "utils/plots.R")
+source(file = "utils/proccess_files_test2.R")
+source(file = "utils/plots_test2.R")
 ```
 
 ### Parameters and paths definition
@@ -41,7 +41,7 @@ COUNTS_PATH      <- "data/NF3-18/salmon.merged.gene_counts.tsv"
 TPM_PATH         <- "data/NF3-18/salmon.merged.gene_tpm.tsv"
 GTF_PATH         <- "/scratch/Shares/rinnclass/MASTER_CLASS/GENOMES/M25/gencode.vM25.annotation.gtf"
 FILTER_TRESHOLD  <- 0
-P_VALUE_FILTER   <- 0.05
+P_VALUE_FILTER   <- 0.01
 LOG2_FOLD_FILTER <- 1
 save(COUNTS_PATH, TPM_PATH, GTF_PATH, FILTER_TRESHOLD, P_VALUE_FILTER, LOG2_FOLD_FILTER, file = "results/r_parameters.RData")
 ```
@@ -62,7 +62,7 @@ tpm              <- tpm_orig %>% select(-gene_name)
 counts_filtered <- counts %>% 
   as.matrix() %>% 
   round() %>% 
-  .[rowSums(.) > FILTER_TRESHOLD, ]
+  .[rowSums(.) > FILTER_TRESHOLD, ] g
 tpm_filtered     <- tpm[rowSums(tpm) > FILTER_TRESHOLD, ]
 save(counts, tpm, counts_filtered, tpm_filtered, g2s, file = "results/r_data_files.RData")
 ```
