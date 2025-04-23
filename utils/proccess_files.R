@@ -165,3 +165,18 @@ merge_results_with_annotations <- function(de_results, gene_locations) {
     )
   return(annotated_results)
 }
+
+##################################################
+############## t-test for one gene ###############
+##################################################
+calculate_stats <- function(gene_row) {
+  tpm_0 <- as.numeric(gene_row[t0_cols])
+  mean_0 = mean(tpm_0)
+  tpm_96 <- as.numeric(gene_row[t96_cols])
+  mean_96 = mean(tpm_96)
+  log2FC = log2(mean(tpm_96) + 1e-3) - log2(mean(tpm_0) + 1e-3)
+  t_result <- t.test(tpm_0, tpm_96, paired = FALSE)
+  return(data.frame( pvalue = t_result$p.value,
+                     tpm_log2fc = log2FC)
+  )
+}

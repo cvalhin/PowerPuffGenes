@@ -45,9 +45,9 @@ We will be using the MACS2 output files from the NF_CORE Pipeline For example:
 
 #### Parameter and path definition
 ```{r define variables}
-PEAK_PATH         <- "/scratch/Shares/rinnclass/MASTER_CLASS/DATA/human_atacseq"
-ANNOTATION_FILE   <- "/scratch/Shares/rinnclass/MASTER_CLASS/DATA/genomes/Homo_sapiens/Gencode/v38/gencode.v38.annotation.gtf"
-RESULT_PATH       <- "../result_human"
+PEAK_PATH         <- "/scratch/Shares/rinnclass/MASTER_CLASS/DATA/mouse_atacseq"
+ANNOTATION_FILE   <- "/scratch/Shares/rinnclass/MASTER_CLASS/DATA/genomes/Mus_musculus/Gencode/M25/gencode.vM25.annotation.gtf"
+RESULT_PATH       <- "../result_mouse"
 
 ```
 
@@ -85,7 +85,6 @@ Non-dox samples
 ```{r non-dox atac peaks, dependson="previous_chunk"}
 
 # common peaks in non-dox (0 time point)
-# TODO: What does KO mean?
 non_dox_samples <- names(my_consensus_peaks)[c(grep("_0", names(my_consensus_peaks)))]
 non_dox_peaks <- my_consensus_peaks[non_dox_samples]
 if (length(non_dox_samples) > 1) {
