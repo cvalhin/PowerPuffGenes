@@ -5,7 +5,7 @@ date: (Sys.time(), '%B %Y')
 output: github_document
 editor_options:
   chunk_output_type: console
-bibliography: source_code/references.bib
+#bibliography: source_code/references_human.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -370,9 +370,6 @@ prolonged_genes_heatmap <- plot_gene_heatmap(
 ```
 
 
-### TODO: provide interpretation/conclusion by comparing heatmaps of sig genes and prolonged genes. What do we see better?
-
-
 ## SECTION 2: ATACseq analysis
 To determine if chromatin accessibility changes due to dox exposure in stem cells.
 We have performed a time course series of experiments measuring chromatin accessibility
@@ -541,8 +538,55 @@ tpm_plot <- plot_tpm_prolonged(
 ```
 
 
-### TODO: provide conclusion of ATAC peaks for prolonged genes. None of the peak of prolonged genes is unique to dox
+## SECTION 3: IGV
+
+### MAG 
+
+Myelin associated glycoprotein [(MAG)](https://www.uniprot.org/uniprotkb/P20916/entry) is a cell membrane protein crucial for the formation and maintenance of myelin sheaths in the peripheral and central nervous system. Additionally, the absence of this protein leads to diseases such as multiple sclerosis(MS), suggesting an important role in the integrity and adequate function of the nervous system[@Sato1989].
+
+In our analysis, we found that this gene is down-regulated in humans 96 hours after dox treatment, with no detectable ATAC-seq peak at the final time point, suggesting reduced chromatin accessibility and gene activity, hence protein production.This downregulation may compromise nervous system integrity. However, more research needs to be done in the effects of dox in MAG production.
+
+![**IGV track with RNA-seq peaks of MAG gene.**](results/IGV/MAG_gene_track_RNA.png)
+Peaks represent the coverage of sequencing reads across this gene. Only peaks from 0 and 96 hours are shown. Note that RNA-seq signal was higher at the 0-hour timepoint but had diminished by 96 hours, indicating a reduction in gene expression over time.
+
+![**IGV track with ATAC-seq peaks of MAG gene.**](results/IGV/MAG_gene_track_ATAC.png)
 
 
-## TODO: SECTION 3: IGV
+Peaks represent accessible chromatin sites. Samples at 0, 1 and 2-hours timepoints are shown. Note that most exonic regions of this gene present accessibility. However, there is one peak in an intronic region. Note that the epigenetic landscape for this gene does not change overtime. 
+
+
+### AUTS2
+
+The autism susceptibility gene [(AUTS2)](https://www.uniprot.org/uniprotkb/Q8WXX7/entry) is a component of a polycomb group multiprotein, polycomb repressive complex I (PRC1) -like complex[@Tamburri2020]. This complexes are required to maintain the transcriptionally repressive state of many genes, including Hox genes, which are crucial throughout development[@Gao2014]. Mutations in this gene have been identified in autism patients, and its suppression in zebrafish embryos was observed to cause microcephaly [@Beunders2013]. This role suggests relevance in gene regulation, making it an interesting and possibly important gene to further explore the effects of dox treatment. This gene was upregulated and had accessible chromatin in our analysis, suggesting an increased activity after dox treatment, that persisted at least 96 hours. 
+
+![**IGV track with RNA-seq peaks of AUTS2 gene.**](results/IGV/AUTS2_gene_track_RNA.png)
+Peaks represent the coverage of sequencing reads across this gene. Only peaks from 0 and 96 hours are shown. Note that RNA-seq signal was diminished at 0-hour timepoint, but higher at the 96-hour timepoint indicating an increased gene expression over time.
+
+
+![**IGV track with ATAC-seq peaks of AUTS2 gene.**](results/IGV/AUTS2_gene_track_ATAC.png)
+Peaks represent accessible chromatin sites. Samples at 0, 1 and 2-hours timepoints are shown. Note that AUTS2 gene has multiple accessible points. Note that the epigenetic landscape for this gene does not change overtime. 
+
+
+### NOD1
+
+The Nucleotide-binding oligomerization domain-containing protein 1 [(NOD1)](https://www.uniprot.org/uniprotkb/Q9Y239/entry) is a leucine-rich molecule that can regulate both apoptosis and NF-kappaB activation pathways[@Inohara1999]. Given this, it play a crucial role in innate and adaptive immunity by recognizing Gram-negative bacteria and viral double stranded RNA. 
+This gene was upregulated and had open chromatin on our analysis, suggesting an overexpression upon dox treatment. The upregultaion of this gene might be generating an excess immune response, perhaps against dox. More research is needed to further explore this speculation. 
+
+
+![**IGV track with RNA-seq peaks of NOD1 gene.**](results/IGV/NOD1_gene_track_RNA.png)
+Peaks represent the coverage of sequencing reads across this gene. Only peaks from 0 and 96 hours are shown. Note that RNA-seq signal was diminished at 0-hour timepoint, but peaks are higher at the 96-hour timepoint indicating an increased gene expression over time. 
+
+
+![**IGV track with ATAC-seq peaks of NOD1 gene.**](results/IGV/NOD1_gene_track_ATAC.png)
+
+Peaks represent accessible chromatin sites. Samples at 0, 1 and 2-hours timepoints are shown. Note that multiple exons across the NOD1 gene present accessible chromatin throughout all timepoints, especially the most upstream exon. Note that the epigenetic landscape for this gene does not change overtime.   
+
+
+# References
+
+Beunders, G., Voorhoeve, E., Golzio, C., Pardo, L. M., Rosenfeld, J. A., Talkowski, M. E., Simonic, I., Lionel, A. C., Vergult, S., Pyatt, R. E., van de Kamp, J., Nieuwint, A., Weiss, M. M., Rizzu, P., Verwer, L. E. N. I., van Spaendonk, R. M. L., Shen, Y., Wu, B., Yu, T., … Sistermans, E. A. (2013). Exonic deletions in AUTS2 cause a syndromic form of intellectual disability and suggest a critical role for the C terminus. American Journal of Human Genetics, 92(2), 210–220. https://doi.org/10.1016/j.ajhg.2012.12.011 Gao, Z., Lee, P., Stafford, J. M., von Schimmelmann, M., Schaefer, A., & Reinberg, D. (2014). An AUTS2-Polycomb complex activates gene expression in the CNS. Nature, 516(7531), 349–354. https://doi.org/10.1038/nature13921 Inohara, N., Koseki, T., del Peso, L., Hu, Y., Yee, C., Chen, S., Carrio, R., Merino, J., Liu, D., Ni, J., & Núñez, G. (1999). Nod1, an Apaf-1-like activator of caspase-9 and nuclear factor-kappaB. The Journal of Biological Chemistry, 274(21), 14560–14567. https://doi.org/10.1074/jbc.274.21.14560 Mark, K. G., & Rape, M. (2021). Ubiquitin‐dependent regulation of transcription in development and disease. EMBO Reports, 22(4), e51078. https://doi.org/10.15252/embr.202051078 Monnier, P., Martinet, C., Pontis, J., Stancheva, I., Ait-Si-Ali, S., & Dandolo, L. (2013). H19 lncRNA controls gene expression of the Imprinted Gene Network by recruiting MBD1. Proceedings of the National Academy of Sciences, 110(51), 20693–20698. https://doi.org/10.1073/pnas.1310201110 Sato, S., Fujita, N., Kurihara, T., Kuwano, R., Sakimura, K., Takahashi, Y., & Miyatake, T. (1989). cDNA cloning and amino acid sequence for human myelin-associated glycoprotein. Biochemical and Biophysical Research Communications, 163(3), 1473–1480. https://doi.org/10.1016/0006-291X(89)91145-5 Tamburri, S., Lavarone, E., Fernández-Pérez, D., Conway, E., Zanotti, M., Manganaro, D., & Pasini, D. (2020). Histone H2AK119 Mono-Ubiquitination Is Essential for Polycomb-Mediated Transcriptional Repression. Molecular Cell, 77(4), 840-856.e5. https://doi.org/10.1016/j.molcel.2019.11.021
+
+
+
+
 
