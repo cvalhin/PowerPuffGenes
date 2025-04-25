@@ -34,7 +34,7 @@ library(stringr)
 
 #### Parameter and path definition
 ```{r define variables}
-RESULT_PATH       <- "../result_mouse"
+RESULT_PATH       <- "../result_human"
 
 ```
 
@@ -42,8 +42,9 @@ RESULT_PATH       <- "../result_mouse"
 # loading RNAseq results from 06_Differential_expression_analyses
 load(file.path(RESULT_PATH, "ATAC_gene_promoter.RData"))
 
-# loading gene promoter peaks
+# loading counts and tpm
 load(file.path(RESULT_PATH, "DESeq2_results.RData"))
+load(file.path(RESULT_PATH, "TPM_results.RData"))
 
 # loading prolonged gene list
 genes_of_interest <- read.csv(file.path(RESULT_PATH, "prolonged_gene_list.csv"), header = TRUE)
@@ -65,8 +66,7 @@ print(c("this is how many genes overlap between RNAseq and ATACseq dox peaks", l
 # filter significant genes from RNAseq "filtered_results" to dox, non-dox promoter overlaps
 sig_rnaseq_atac_dox_non_dox <- dox_non_dox_gene_promoter_ov[dox_non_dox_gene_promoter_ov$gene_id %in% filtered_results$gene_id]
 
-print(c("this is how many genes overlap between RNAseq and ATACseq dox, non-dox peaks", length(sig_rnaseq_atac_dox_non_dox)))
-
+print(c("this is how many significant genes overlap between RNAseq and ATACseq dox, non-dox peaks", length(sig_rnaseq_atac_dox_non_dox)))
 ```
 
 ```{r matching peaks wirh prolonged genes RNAseq}
@@ -95,4 +95,58 @@ print(c("this is how many genes overlap between downregulated-prolonged RNAseq g
 
 # save data
 write.csv(down_atac_genes, file.path(RESULT_PATH,"down_atac_genes.csv"), row.names = FALSE)
+```
+
+
+```{r}
+
+# filter significant genes from RNAseq all tpm results to dox, non-dox promoter overlaps
+rnaseq_atac_dox_non_dox <- tpm_filtered[rownames(tpm_filtered) %in% dox_non_dox_gene_promoter_ov$gene_id,]
+
+print("TPM summary for genes with ATAC peak")
+print(summary(rnaseq_atac_dox_non_dox))
+
+# filter significant genes from RNAseq all tpm results to dox, non-dox promoter overlaps
+rnaseq_no_atac_dox_non_dox <- tpm_filtered[!(rownames(tpm_filtered) %in% dox_non_dox_gene_promoter_ov$gene_id),]
+
+print("TPM summary for genes without ATAC peak")
+print(summary(rnaseq_no_atac_dox_non_dox))
+
+```
+
+```{r}
+
+sig_genes_with_peaks <- sig_rnaseq_atac_dox_non_dox$gene_name
+time_points <- names(avg_and_sd_values)[grep("avg", names(avg_and_sd_values))]
+
+tpm_sig_genes_with_peaks <- avg_and_sd_values[avg_and_sd_values$gene_name %in% sig_rnaseq_atac_dox_non_dox$gene_name, ]
+tpm_sig_genes_with_peaks$gene_name <- NULL
+
+tpm_sig_genes_without_peaks <- avg_and_sd_values[!(avg_and_sd_values$gene_name %in% sig_rnaseq_atac_dox_non_dox$gene_name), ]
+tpm_sig_genes_without_peaks$gene_name <- NULL
+
+pivot_with_peaks <- tpm_sig_genes_with_peaks %>% 
+  pivot_longer(cols = all_of(time_points), names_to = 'Time', values_to = 'TPM')
+print(mean(pivot_with_peaks$TPM))
+
+pivot_without_peaks <- tpm_sig_genes_without_peaks %>% 
+  pivot_longer(cols = all_of(time_points), names_to = 'Time', values_to = 'TPM')
+print(mean(pivot_without_peaks$TPM))
+
+ggplot(pivot_with_peaks, aes(x = TPM)) +
+  geom_histogram(bins = 50) +
+  facet_wrap(~ Time, scales = "free_x")+
+  xlim(0,200) +
+  ylim(0,200) +
+  theme("paperwhite")
+
+ggplot(pivot_without_peaks, aes(x = TPM)) +
+  geom_histogram(bins = 50) +
+  facet_wrap(~ Time, scales = "free_x")+
+  xlim(0,200) +
+  ylim(0,200) +
+  theme("paperwhite")
+
+summary(tpm_sig_genes_with_peaks)
+
 ```
