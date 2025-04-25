@@ -5,7 +5,7 @@ date: (Sys.time(), '%B %Y')
 output: github_document
 editor_options:
   chunk_output_type: console
-bibliography: source_code/references.bib
+bibliography: source_code/references_mouse.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -273,9 +273,6 @@ plot_timeseries <- create_volcano_plot(
 )
 ```
 
-
-### TODO: provide interpretation/conclusion for all the graphs included above and make a link to why we should care about prolonged gene changes
-
 ## 1.2) Gene selection
 To identify and visualize prolonged and transient expression patterns from significant gene expression dynamics after dox induction
 
@@ -368,10 +365,6 @@ prolonged_genes_heatmap <- plot_gene_heatmap(
   output_file = file.path(RESULTS_PATH, "heatmap_prolonged_genes.png")
 )
 ```
-
-
-### TODO: provide interpretation/conclusion by comparing heatmaps of sig genes and prolonged genes. What do we see better?
-
 
 ## SECTION 2: ATACseq analysis
 To determine if chromatin accessibility changes due to dox exposure in stem cells.
@@ -541,8 +534,26 @@ tpm_plot <- plot_tpm_prolonged(
 ```
 
 
-### TODO: provide conclusion of ATAC peaks for prolonged genes.
+## SECTION 3: IGV of interesting genes
+
+### Usp26
+
+The [Usp26](https://www.uniprot.org/uniprotkb/Q99MX1/entry) gene has been involved in deubiquitination pathways, making it potentially relevant for gene regulation. There are many transcription factors in the cell, such as  polycomb repressive complex 1 (PRC1), that are in charge of maintaining and regulating epigenetic marks in the genome (Tamburri et al., 2020). Many of these transcription factors, need ubiquitination for their function, making a deubiquitination crucial for this process as well (Mark & Rape, 2021). For example, this gene has been found to be involved in somatic cell reprogramming through the K48 deubiquitination of two protein components of PRC1.
 
 
-## TODO: SECTION 3: IGV
+![**IGV track with RNA-seq peaks of Usp26 gene.** ](results/IGV/Usp26_IGV_track2.png)
+
+Peaks represent the coverage of sequencing reads across this gene. Note that peaks are higher at 0 and 12 hours, but are lower when 24 hours are reached. They keep beung low until the last time point of 96 hours. Note there are higher expression signals in the nost downstream exon of the Usp26 gene. 
+
+
+![**IGV track with ATAC-seq peaks of Usp26 gene.**](results/IGV/Usp26_gene_track_ATAC.png)
+
+Peaks represent accessible chromatin sites. Samples at 0, 30, 60, 90, 120 and 150 minutes after dox treatment are shown. Note that the epigenetic landscape for this gene seems to be changing overtime, with its higher peak presented at 90 minute after treatment timepoint. This IGV track is showin the accessibility of Usp26 gene in its most upstream exon. Note that this exon is not the same as the one in the RNA seq track.
+
+# References 
+
+Mark, K. G., & Rape, M. (2021). Ubiquitin‐dependent regulation of transcription in development and disease. EMBO Reports, 22(4), e51078. https://doi.org/10.15252/embr.202051078
+
+Tamburri, S., Lavarone, E., Fernández-Pérez, D., Conway, E., Zanotti, M., Manganaro, D., & Pasini, D. (2020). Histone H2AK119 Mono-Ubiquitination Is Essential for Polycomb-Mediated Transcriptional Repression. Molecular Cell, 77(4), 840-856.e5. https://doi.org/10.1016/j.molcel.2019.11.021
+
 
