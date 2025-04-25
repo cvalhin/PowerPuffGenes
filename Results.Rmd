@@ -1,0 +1,56 @@
+---
+title: "PowerPuffGenes Report"
+authors: "FN, CV, LP"
+date: (Sys.time(), '%B %Y')
+output: github_document
+editor_options:
+  chunk_output_type: console
+---
+
+# PowerPuffGenes
+RNAseq and ATACseq Time Course Analysis of Doxycycline-Induced Gene Expression
+
+## Introduction
+Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes such as stem cell differentiation and responses to stimuli. This project uses a doxycycline (dox)-inducible system in mouse stem cells to explore gene expression changes over time. In this system, dox activates gene expression via the rtTA-TRE mechanism. However, dox itself may also exert off-target effects on the transcriptome.
+
+## Section 1: Differential Expression Analysis
+Leveraging Dr. Rinn's lab RNA-seq dataset spanning five time points (0, 12, 24, 48, 96 hours) with replicates.
+
+### Methods
+We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differential expression analysis, providing a practical application of bioinformatics skills to time-course data exploration.
+
+### Goals
+1) Identify genes significantly regulated following dox administration.
+2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses.
+3) Investigate the role, significance, and chromosomal location of these genes.
+
+### Section 1.1: DESeq and TPM analysis (RNA-seq data processing)
+
+
+### Section 1.2: Prolonged Gene Selection
+
+
+#### Results
+
+
+### Section 2: ATAC-seq analysis
+To determine if chromatin accessibility changes due to dox exposure in stem cells.
+We have performed a time course series of experiments measuring chromatin accessibility
+(ATACseq peaks) upon exposure to dox. These are 0, 30, 60, 90, 120, 150 minutes.
+Each time point has a replicate. The fastq sequencing files were processed by the
+NF_CORE ATAC-seq pipeline v-2.12 (https://nf-co.re/atacseq/2.1.2/).
+
+
+#### Methods
+
+
+
+#### Results
+
+
+
+### Section 3: IGV
+
+
+
+
