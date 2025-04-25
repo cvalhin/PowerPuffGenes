@@ -277,4 +277,3 @@ find_my_peaks <- function(common_peaks, original_peaks) {
   # Return unique peaks
   return(unique_peaks)
 }
-

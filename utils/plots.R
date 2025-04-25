@@ -1,18 +1,17 @@
 ##################################################
 #################### PCA Plot ####################
 ##################################################
-plot_pca <- function(dds, intgroup="time_point", ntop=500, prefix="gfp") {
+
+plot_pca <- function(dds, intgroup="time_point", ntop=500) {
   vsd <- vst(dds, blind=FALSE) # Get variance stabilized data
   pca_data <- plotPCA(vsd, intgroup=intgroup, returnData=TRUE, ntop=ntop) # Run PCA
   percentVar <- round(100 * attr(pca_data, "percentVar")) # Percentage of variance explained
-  # Determine the species name for the plot title
-  species_name <- if(prefix == "gfp") "Mouse" else "Human"
   # Plot
   ggplot(pca_data, aes(x=PC1, y=PC2, color=time_point, shape=replicate)) +
     geom_point(size=3) +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-    ggtitle(paste0("PCA of RNA-seq samples (", species_name, ")")) +
+    ggtitle("PCA of RNA-seq samples") +
     theme_minimal() +
     theme(
       panel.grid.major = element_blank(),
@@ -33,6 +32,7 @@ plot_count_distributions <- function(results_df,
                                      output_file = NULL,
                                      width = 10, 
                                      height = 8) {
+  
   # Prepare the data for plotting
   histogram_data <- results_df %>%
     select(all_of(metrics)) %>%
@@ -43,24 +43,17 @@ plot_count_distributions <- function(results_df,
     ) %>%
     # Convert metric to a factor with specific order and labels
     mutate(metric = factor(metric, levels = metrics, labels = labels))
+  
   # Create color palette
   histogram_colors <- setNames(colors, labels)
-  # Extract species from output file name if available
-  species_label <- ""
-  if (!is.null(output_file)) {
-    if (grepl("_mouse\\.", output_file)) {
-      species_label <- " (Mouse)"
-    } else if (grepl("_human\\.", output_file)) {
-      species_label <- " (Human)"
-    }
-  }
+  
   # Create the plot
   faceted_plot <- ggplot(histogram_data, aes(x = value, fill = metric)) +
     geom_histogram(bins = 50, color = "white", alpha = 0.85) +
     facet_wrap(~ metric, scales = "free", ncol = 2) +
     scale_fill_manual(values = histogram_colors) +
     labs(
-      title = paste0("Distribution of DESeq2 Statistics", species_label),
+      title = "Distribution of DESeq2 Statistics",
       x = NULL,
       y = "Count"
     ) +
@@ -73,11 +66,11 @@ plot_count_distributions <- function(results_df,
       panel.spacing = unit(1, "lines"),
       legend.position = "none"
     )
+  
   # Save the plot if output file is specified
   if (!is.null(output_file)) {
     ggsave(output_file, faceted_plot, width = width, height = height, dpi = 300)
   }
-  return(faceted_plot)
 }
 
 ##################################################
@@ -87,12 +80,14 @@ plot_tpm_distributions <- function(avg_sd_df,
                                    log_transform = TRUE,
                                    bins = 50,
                                    theme_style = "minimal",
-                                   title = NULL,
+                                   title = "Distribution of TPM Values Across Time Points",
                                    output_file = NULL,
                                    width = 10, 
                                    height = 8) {
+  
   # Find columns containing average values
   avg_columns <- grep("avg", names(avg_sd_df), value = TRUE)
+  
   # Create a long-format dataframe for plotting
   plot_data <- avg_sd_df %>%
     select(all_of(c("gene_id", "gene_name", avg_columns))) %>%
@@ -108,26 +103,16 @@ plot_tpm_distributions <- function(avg_sd_df,
         levels = sort(as.numeric(gsub("_avg", "", avg_columns)))
       )
     )
+  
   # Determine x-axis values based on log_transform parameter
   x_values <- if(log_transform) {
     plot_data %>% mutate(plot_value = log2(tpm + 1)) %>% pull(plot_value)
   } else {
     plot_data %>% pull(tpm)
   }
+  
   x_label <- if(log_transform) "log2(TPM + 1)" else "TPM"
-  # Extract species from output file name if available
-  species_label <- ""
-  if (!is.null(output_file)) {
-    if (grepl("_mouse\\.", output_file)) {
-      species_label <- " (Mouse)"
-    } else if (grepl("_human\\.", output_file)) {
-      species_label <- " (Human)"
-    }
-  }
-  # Set title if not provided
-  if (is.null(title)) {
-    title <- paste0("Distribution of TPM Values Across Time Points", species_label)
-  }
+  
   # Create the plot
   tpm_plot <- ggplot(plot_data, aes(x = if(log_transform) log2(tpm + 1) else tpm)) +
     geom_histogram(bins = bins, fill = "#3498db", color = "white", alpha = 0.8) +
@@ -137,6 +122,7 @@ plot_tpm_distributions <- function(avg_sd_df,
       x = x_label,
       y = "Number of genes"
     )
+  
   # Apply selected theme
   if (theme_style == "paperwhite") {
     tpm_plot <- tpm_plot + 
@@ -153,11 +139,11 @@ plot_tpm_distributions <- function(avg_sd_df,
   } else {
     tpm_plot <- tpm_plot + get(paste0("theme_", theme_style))()
   }
+  
   # Save the plot if output file is specified
   if (!is.null(output_file)) {
     ggsave(output_file, tpm_plot, width = width, height = height, dpi = 300)
   }
-  return(tpm_plot)
 }
 
 ##################################################
@@ -175,6 +161,7 @@ create_volcano_plot <- function(results_df,
                                 output_file = NULL,
                                 width = 20, 
                                 height = 12) {
+  
   # Pre-process results for volcano plot
   volcano_data <- results_df %>% 
     mutate(
@@ -188,14 +175,17 @@ create_volcano_plot <- function(results_df,
       gene_label = if_else(significance != "Not Significant", gene_name, "")
     ) %>%
     filter(!is.na(padj) & !is.na(log2FoldChange))
+  
   # Filter by comparisons if specified
   if (!is.null(comparisons)) {
     volcano_data <- volcano_data %>%
       filter(comparison %in% comparisons) %>%
       mutate(comparison = factor(comparison, levels = comparisons))
   }
+  
   # Define color map
   color_map <- setNames(color_scheme, c("Upregulated", "Downregulated", "Not Significant"))
+  
   # Common theme
   common_volcano_theme <- theme_minimal(base_size = 10) +
     theme(
@@ -206,6 +196,7 @@ create_volcano_plot <- function(results_df,
       panel.grid.minor = element_blank(),
       panel.border = element_rect(color = "black", fill = NA, size = 0.5)
     )
+  
   # Create the plot
   volcano_plot <- ggplot(
     volcano_data,
@@ -225,10 +216,12 @@ create_volcano_plot <- function(results_df,
     ) +
     common_volcano_theme +
     coord_cartesian(ylim = c(0, NA))
+  
   # Save the plot if output file is specified
   if (!is.null(output_file)) {
     ggsave(output_file, volcano_plot, width = width, height = height, dpi = 300)
   }
+  
   return(volcano_plot)
 }
 
@@ -237,46 +230,15 @@ create_volcano_plot <- function(results_df,
 ##################################################
 plot_lfc_prolonged <- function(results, gene_groups, output_file = NULL, 
                                width = 20, height = 12, dpi = 500) {
-<<<<<<< HEAD
-  # Create genes of interest dataframe
-  # Handle both regular list format and data.frame format for gene_groups
-  if(is.data.frame(gene_groups)) {
-    genes_of_interest <- gene_groups
-  } else {
-    genes_of_interest <- data.frame(
-      gene_name = c(gene_groups$change_at_12_to_end, 
-                    gene_groups$change_at_24_to_end, 
-                    gene_groups$change_at_48_to_end),
-      change_from = c(rep("12", length(gene_groups$change_at_12_to_end)),
-                      rep("24", length(gene_groups$change_at_24_to_end)),
-                      rep("48", length(gene_groups$change_at_48_to_end)))
-    )
-  }
-  # Check if we have genes to plot
-  if(nrow(genes_of_interest) == 0) {
-    message("No genes to plot! Check if the filtered gene list is empty.")
-    # Create an empty plot with a message
-    empty_plot <- ggplot() + 
-      annotate("text", x = 0.5, y = 0.5, label = "No genes passed the filtering criteria") +
-      theme_void()
-    
-    if (!is.null(output_file)) {
-      ggsave(output_file, empty_plot, width = width, height = height, dpi = dpi)
-    }
-    return(empty_plot)
-  }
-  # Merge results with genes of interest
-  res_df <- merge(results, genes_of_interest)
-=======
   
   # Merge results with genes of interest
   res_df <- merge(results, gene_groups)
   
->>>>>>> main
   # Split data into baseline and intermediate comparisons
   df_time0 <- res_df %>% 
     filter(grepl("_vs_0$", comparison)) %>%
     mutate(Time = as.numeric(gsub("time_([0-9]+)_vs_0", "\\1", comparison)))
+  
   df_intermediate <- res_df %>% 
     filter(!grepl("_vs_0$", comparison)) %>%
     mutate(
@@ -286,6 +248,7 @@ plot_lfc_prolonged <- function(results, gene_groups, output_file = NULL,
     group_by(gene_name) %>%
     mutate(Offset_Index = row_number() - 1) %>%
     ungroup()
+  
   # Calculate y-axis limits for each gene
   y_axis_limits <- res_df %>%
     group_by(gene_name) %>%
@@ -294,6 +257,7 @@ plot_lfc_prolonged <- function(results, gene_groups, output_file = NULL,
       max_log2FC = max(log2FoldChange, na.rm = TRUE),
       y_axis_limit = max_log2FC + (max_log2FC - min_log2FC) * 0.05
     )
+  
   # Add significance markers
   df_intermediate <- df_intermediate %>%
     left_join(y_axis_limits, by = "gene_name") %>%
@@ -306,15 +270,7 @@ plot_lfc_prolonged <- function(results, gene_groups, output_file = NULL,
         TRUE ~ ""
       )
     )
-  # Extract species information from output file path if available
-  species_label <- ""
-  if (!is.null(output_file)) {
-    if (grepl("_mouse\\.", output_file)) {
-      species_label <- " (Mouse)"
-    } else if (grepl("_human\\.", output_file)) {
-      species_label <- " (Human)"
-    }
-  }
+  
   # Create the plot
   prolonged_lfc <- ggplot() +
     # Plot log2FoldChange for time 0 comparisons
@@ -323,20 +279,23 @@ plot_lfc_prolonged <- function(results, gene_groups, output_file = NULL,
                size = 1.5) +
     geom_line(data = df_time0, 
               aes(x = Time, y = log2FoldChange, group = gene_name)) +
+    
     # Add p-value markers
     geom_segment(data = df_intermediate %>% filter(Significance != ""), 
                  aes(x = Time1, xend = Time2, y = Y_Pos, yend = Y_Pos), 
                  color = "black", size = 0.5) +
+    
     # Add significance markers
     geom_text(data = df_intermediate %>% filter(Significance != ""), 
               aes(x = (Time1 + Time2) / 2, y = Y_Pos + 0.025, label = Significance), 
               size = 4, color = "black") +
+    
     # Facet and formatting
     facet_wrap(~gene_name, scales = "free") +
     coord_cartesian() +
     scale_x_continuous(breaks = c(12, 24, 48, 96), 
                        labels = c("12", "24", "48", "96")) +
-    labs(title = paste0("Genes regulated by dox over time", species_label),
+    labs(title = "Genes regulated by dox over time",
          caption = "*: p < 0.05\n**: p < 0.01\n***: p < 0.001",
          x = "Time after dox induction (hours)",
          y = "log2fold change",
@@ -348,11 +307,11 @@ plot_lfc_prolonged <- function(results, gene_groups, output_file = NULL,
       panel.background = element_blank(),
       panel.border = element_rect(color = "black", fill = NA, size = 1)
     )
+  
   # Save if output file specified
   if (!is.null(output_file)) {
     ggsave(output_file, prolonged_lfc, width = width, height = height, dpi = dpi)
   }
-  return(prolonged_lfc)
 }
 
 ##################################################
@@ -362,26 +321,14 @@ plot_tpm_prolonged <- function(avg_and_sd_values, genes_of_interest, g2s, filter
                                output_file = NULL, width = 20, height = 12, dpi = 500) {
   # Get significant genes
   sig_gene <- data.frame(gene_id = unique(filtered_results$gene_id))
+  
   # Merge with TPM values
   sig_gene_tpm <- inner_join(avg_and_sd_values, sig_gene, by = "gene_id") %>%
     merge(g2s)
+  
   # Prepare data for genes of interest
-  # Handle both data.frame and list format for genes_of_interest
-  if(is.data.frame(genes_of_interest)) {
-    # If genes_of_interest is already a data frame (as in the refined gene list)
-    df_plot_genes <- merge(sig_gene_tpm, genes_of_interest)
-  } else {
-    # If genes_of_interest is a list (as in the original function)
-    genes_df <- data.frame(
-      gene_name = c(genes_of_interest$change_at_12_to_end, 
-                    genes_of_interest$change_at_24_to_end, 
-                    genes_of_interest$change_at_48_to_end),
-      change_from = c(rep("12", length(genes_of_interest$change_at_12_to_end)),
-                      rep("24", length(genes_of_interest$change_at_24_to_end)),
-                      rep("48", length(genes_of_interest$change_at_48_to_end)))
-    )
-    df_plot_genes <- merge(sig_gene_tpm, genes_df)
-  }
+  df_plot_genes <- merge(sig_gene_tpm, genes_of_interest)
+  
   # Process average values
   time_avg_values <- grep("avg", names(df_plot_genes), value = TRUE)
   df_plot_genes_avg <- df_plot_genes %>%
@@ -389,7 +336,8 @@ plot_tpm_prolonged <- function(avg_and_sd_values, genes_of_interest, g2s, filter
     mutate(
       Time = as.numeric(gsub("(.*)_avg", "\\1", variable))
     ) %>%
-    select(gene_name, Time, avg, change_from)
+    select(gene_name, Time, avg)
+  
   # Process standard deviation values
   time_sd_values <- grep("sd", names(df_plot_genes), value = TRUE)
   df_plot_genes_sd <- df_plot_genes %>%
@@ -398,92 +346,33 @@ plot_tpm_prolonged <- function(avg_and_sd_values, genes_of_interest, g2s, filter
       Time = as.numeric(gsub("(.*)_sd", "\\1", variable))
     ) %>%
     select(gene_name, Time, sd)
+  
   # Combine average and standard deviation
   df_plot_genes_avg_sd <- inner_join(df_plot_genes_avg, df_plot_genes_sd, 
                                      by = c("gene_name", "Time"))
-  # Extract species information from output file path if available
-  species_label <- ""
-  if (!is.null(output_file)) {
-    if (grepl("_mouse\\.", output_file)) {
-      species_label <- " (Mouse)"
-    } else if (grepl("_human\\.", output_file)) {
-      species_label <- " (Human)"
-    }
-  }
-  # Check if we have genes to plot
-  if(nrow(df_plot_genes_avg_sd) == 0) {
-    message("No genes to plot! Check if the filtered gene list is empty.")
-    # Create an empty plot with a message
-    empty_plot <- ggplot() + 
-      annotate("text", x = 0.5, y = 0.5, label = "No genes passed the filtering criteria") +
-      theme_void()
-    if (!is.null(output_file)) {
-      ggsave(output_file, empty_plot, width = width, height = height, dpi = dpi)
-    }
-    return(empty_plot)
-  }
-  # Add log2FC info if available in the data
-  if("tpm_log2fc" %in% names(df_plot_genes)) {
-    # Map log2FC values to gene names
-    log2fc_map <- df_plot_genes %>% 
-      select(gene_name, tpm_log2fc) %>% 
-      distinct()
-    # Add subtitle with log2FC for each gene
-    gene_subtitles <- log2fc_map %>%
-      mutate(subtitle = paste0("log2FC: ", round(tpm_log2fc, 2)))
-    # Set plot labels based on log2FC direction
-    gene_order <- df_plot_genes %>%
-      arrange(change_from, -abs(tpm_log2fc)) %>%
-      pull(gene_name) %>%
-      unique()
-    # Use facet_wrap with labeller to show log2FC in facet titles
-    facet_labels <- setNames(
-      gene_subtitles$subtitle,
-      gene_subtitles$gene_name
+  
+  # Create the plot
+  prolonged_tpm <- ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
+    geom_line() +
+    geom_point(size = 1) +
+    geom_errorbar(aes(ymin = avg - sd, ymax = avg + sd), width = 3, size = 0.5) +
+    labs(x = 'Time after dox induction (hours)', y = 'Average TPM') +
+    ggtitle('Average TPM across Time Points') +
+    facet_wrap(~ gene_name, scales = "free") +
+    scale_x_continuous(breaks = c(0, 12, 24, 48, 96), 
+                       labels = c("0", "12", "24", "48", "96")) +
+    theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(), 
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(), 
+      panel.border = element_rect(color = "black", fill = NA, size = 1)
     )
-    # Create the plot with ordered facets and custom labels
-    prolonged_tpm <- ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
-      geom_line() +
-      geom_point(size = 1) +
-      geom_errorbar(aes(ymin = avg - sd, ymax = avg + sd), width = 3, size = 0.5) +
-      labs(x = 'Time after dox induction (hours)', y = 'Average TPM') +
-      ggtitle(paste0('Average TPM across Time Points', species_label)) +
-      facet_wrap(~ gene_name, scales = "free", ncol = 3,
-                 labeller = labeller(gene_name = facet_labels)) +
-      scale_x_continuous(breaks = c(0, 12, 24, 48, 96), 
-                         labels = c("0", "12", "24", "48", "96")) +
-      theme_minimal() +
-      theme(
-        panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(), 
-        panel.border = element_rect(color = "black", fill = NA, size = 1),
-        strip.text = element_text(face = "bold")
-      )
-  } else {
-    # Create the basic plot without log2FC information
-    prolonged_tpm <- ggplot(df_plot_genes_avg_sd, aes(x = Time, y = avg)) +
-      geom_line() +
-      geom_point(size = 1) +
-      geom_errorbar(aes(ymin = avg - sd, ymax = avg + sd), width = 3, size = 0.5) +
-      labs(x = 'Time after dox induction (hours)', y = 'Average TPM') +
-      ggtitle(paste0('Average TPM across Time Points', species_label)) +
-      facet_wrap(~ gene_name, scales = "free") +
-      scale_x_continuous(breaks = c(0, 12, 24, 48, 96), 
-                         labels = c("0", "12", "24", "48", "96")) +
-      theme_minimal() +
-      theme(
-        panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(), 
-        panel.border = element_rect(color = "black", fill = NA, size = 1)
-      )
-  }
+  
   # Save if output file specified
   if (!is.null(output_file)) {
     ggsave(output_file, prolonged_tpm, width = width, height = height, dpi = dpi)
   }
-  return(prolonged_tpm)
 }
 
 ##################################################
@@ -505,14 +394,19 @@ plot_gene_heatmap <- function(data_matrix,
                               output_file = NULL,
                               width = 10,
                               height = 12) {
+  
   # Define distance function
   custom_dist <- function(x) dist(x, method = distance_method)
+  
   # Define clustering function
   custom_hclust <- function(x) hclust(x, method = clustering_method)
+  
   # Set breaks for color scale
   breaks <- seq(break_min, break_max, length.out = breaks_n)
+  
   # Create color palette
   color_ramp <- colorRampPalette(color_palette)(colors_n)
+  
   # Plot the heatmap
   heatmap_plot <- pheatmap(
     data_matrix,
@@ -527,12 +421,12 @@ plot_gene_heatmap <- function(data_matrix,
     hclustfun = custom_hclust,
     breaks = breaks,
     filename = output_file,
-    silent = !is.null(output_file),
-    width = width,
-    height = height
+    silent = !is.null(output_file)
   )
+  
   return(heatmap_plot)
 }
+
 
 ##################################################
 ################# Circos Plot ####################
@@ -547,46 +441,40 @@ plot_circos_differential_expression <- function(annotated_results,
                                                 point_size = 0.6,
                                                 track_height = 0.15,
                                                 ylim = c(-20, 20)) {
+  
   # Initialize output file
   png(output_file, width = width, height = height, res = resolution)
+  
   # Clear existing circos plots
   circos.clear()
-  # Determine species based on chromosomes
-  species <- if(any(grepl("chr22", unique(annotated_results$chr)))) {
-    "Human (hg38)"
-  } else {
-    "Mouse (mm10)"
-  }
-  # Create a correctly ordered factor for chromosomes based on species
-  if(species == "Human (hg38)") {
-    sorted_chrs <- factor(
-      paste0("chr", c(1:22, "X", "Y")),
-      levels = paste0("chr", c(1:22, "X", "Y"))
-    )
-    species_code <- "hg38"
-  } else {
-    sorted_chrs <- factor(
-      paste0("chr", c(1:19, "X", "Y")),
-      levels = paste0("chr", c(1:19, "X", "Y"))
-    )
-    species_code <- "mm10"
-  }
+  
+  # Create a correctly ordered factor for chromosomes
+  sorted_chrs <- factor(
+    paste0("chr", c(1:19, "X", "Y")),
+    levels = paste0("chr", c(1:19, "X", "Y"))
+  )
+  
   # Set up circos parameters
   circos.par(start.degree = 90, gap.degree = 2)
+  
   # Initialize with ideogram
   circos.initializeWithIdeogram(
-    species = species_code,
+    species = "mm10",
     chromosome.index = levels(sorted_chrs)
   )
+  
   # Filter comparisons if specified
   if (!is.null(comparisons)) {
     annotated_results <- annotated_results %>%
       filter(comparison %in% comparisons)
   }
+  
   # Get unique comparisons
   time_points <- unique(annotated_results$comparison)
+  
   # Find global max log2FC value with margin
   global_max_fc <- max(abs(annotated_results$log2FoldChange), na.rm = TRUE) * 1.2
+  
   # Define color mapping function
   get_color <- function(value) {
     if (is.na(value)) return("gray80")
@@ -601,6 +489,7 @@ plot_circos_differential_expression <- function(annotated_results,
       return("white")  # Zero value
     }
   }
+  
   # Function to plot each comparison
   plot_timepoint_comparison <- function(comparison_data, track_title) {
     if (nrow(comparison_data) > 0) {
@@ -623,8 +512,10 @@ plot_circos_differential_expression <- function(annotated_results,
               cex = point_size
             )
           }
+          
           # Add horizontal line at y=0
           circos.lines(CELL_META$xlim, c(0, 0), col = "black", lty = 2)
+          
           # Add track title on the first sector
           if (CELL_META$sector.index == levels(sorted_chrs)[1]) {
             circos.text(
@@ -643,26 +534,32 @@ plot_circos_differential_expression <- function(annotated_results,
       message(paste("No data for comparison:", track_title))
     }
   }
+  
   # Plot each timepoint comparison
   for (time_point in time_points) {
     comparison_data <- annotated_results %>%
       filter(comparison == time_point) %>%
       dplyr::select(chr, start, end, log2FoldChange)
+    
     plot_timepoint_comparison(comparison_data, time_point)
   }
+  
   # Add title and legend
-  title(main = paste0("Differential Expression Across Time Points (", species, ")"), cex.main = 1.2)
+  title(main = "Differential Expression Across Time Points", cex.main = 1.2)
   par(xpd = TRUE)
+  
   # Add color legend
   legend_values <- seq(-color_cap, color_cap, length.out = 7)
   legend_x <- 0.9
   legend_y <- -1.3
   color_legend_width <- 0.2
   color_legend_height <- 0.02
+  
   # Draw color bar segments
   for (i in 1:(length(legend_values)-1)) {
     mid_val <- (legend_values[i] + legend_values[i+1]) / 2
     segment_color <- get_color(mid_val)
+    
     rect(
       legend_x + (i-1) * color_legend_width/(length(legend_values)-1),
       legend_y - color_legend_height,
@@ -672,6 +569,7 @@ plot_circos_differential_expression <- function(annotated_results,
       border = NA
     )
   }
+  
   # Add tick marks and labels
   for (i in 1:length(legend_values)) {
     text(
@@ -682,6 +580,7 @@ plot_circos_differential_expression <- function(annotated_results,
       adj = c(0.5, 0.5)
     )
   }
+  
   # Add legend title
   text(
     legend_x + color_legend_width/2,
@@ -689,6 +588,7 @@ plot_circos_differential_expression <- function(annotated_results,
     "log2FoldChange",
     cex = 0.8
   )
+  
   # Close device
   dev.off()
-  }
+}
