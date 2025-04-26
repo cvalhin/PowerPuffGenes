@@ -59,20 +59,49 @@ Only genes that both: (1) Fall below this significance threshold, and (2) Show a
 #### Human Results
 ![prolonged_gene_heatmap](results/human/heatmap_prolonged_genes.png)
 
+
 ### Section 2: ATAC-seq analysis
-To determine if chromatin accessibility changes due to dox exposure in stem cells.
-We have performed a time course series of experiments measuring chromatin accessibility
-(ATACseq peaks) upon exposure to dox. These are 0, 30, 60, 90, 120, 150 minutes.
+To determine if chromatin accessibility of prolonged gene changes due to dox exposure in mouse and human stem cells. We have performed a time course series of experiments measuring chromatin accessibility (ATAC-seq peaks) upon exposure to dox. These are 0, 30, 60, 90, 120, 150 minutes.
 Each time point has a replicate. The fastq sequencing files were processed by the
 NF_CORE ATAC-seq pipeline v-2.12 (https://nf-co.re/atacseq/2.1.2/).
 
-
 #### Methods
+1) Data Collection
+- ATAC-seq performed at 0, 30, 60, 90, 120, and 150 minutes after dox exposure, with replicates.
+Data Processing
+- Raw fastq files processed using NF-CORE ATACseq pipeline v2.1.2.
 
+2) Peak Import and Consensus Identification
+- Import .broadPeak files with a custom import_peaks() function.
+- Identify consensus peaks across replicates for each time point.
 
+3) Condition-Specific Peaks
+- Define non-dox (0 min) and dox (30–150 min) groups.
+- Find peaks unique to each condition by comparing overlaps.
 
-#### Results
+4) Genome Annotation
+- Load genome annotations (GTF) and define gene promoters (±2 kb from transcription start sites).
 
+5) Functional Overlap Analysis
+- Identify overlaps between dox-specific peaks and gene promoters.
+
+6) Integration with RNA-seq
+- Cross-reference prolonged genes (from RNA-seq) with ATAC-seq promoter overlaps
+- Find upregulated genes with promoter accessibility.
+- Identify downregulated genes lacking associated ATAC peaks.
+
+#### Mouse Results
+![prolonged_upgene_l2fc](results/mouse/lfc_prolonged_up_genes.png)
+![prolonged_upgene_tpm](results/mouse/tpm_prolonged_up_genes.png)
+![prolonged_downgene_l2fc](results/mouse/lfc_prolonged_down_genes.png)
+![prolonged_downgene_tpm](results/mouse/tpm_prolonged_down_genes.png)
+
+#### Human Results
+![prolonged_upgene_l2fc](results/human/lfc_prolonged_up_genes.png)
+![prolonged_upgene_tpm](results/human/tpm_prolonged_up_genes.png)
+![prolonged_downgene_l2fc](results/human/lfc_prolonged_down_genes.png)
+
+![prolonged_downgene_tpm](results/human/tpm_prolonged_down_genes.png)
 
 
 ### Section 3: IGV
