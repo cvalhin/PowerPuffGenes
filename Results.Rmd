@@ -28,10 +28,36 @@ We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differe
 
 
 ### Section 1.2: Prolonged Gene Selection
+Gene expression changes in response to stimuli can be broadly categorized as transient or prolonged. Transient changes are short-lived and may reflect immediate cellular responses such as signaling events or stress adaptation. In contrast, prolonged changes suggest stable regulatory shifts that may contribute to long-term cellular adaptations. Understanding these patterns can provide insight into gene regulatory mechanisms and cellular dynamics. 
 
+This analysis focuses on identifying genes that exhibit sustained differential expression over a time-course following dox induction, classifying them by when their change begins and persisting through 96 hours.
 
-#### Results
+#### Methods
 
+1) Classifying Genes by Timing of Expression Change
+- A custom function categorize_gene_expression() is used to examine the results of differential expression over time.
+- Each gene is assigned to one of three groups based on the earliest timepoint at which it begins to show a statistically significant change in expression that persists through to 96 hours: 12h-to-96h sustained change, 24h-to-96h sustained change and 48h-to-96h sustained change.
+
+This allows the separation of genes by the onset timing of their response to dox induction.
+
+2) Computing Expression Statistics
+The function calculate_stats() is applied to TPM values of genes in the classified groups.
+For each gene, the function compares expression between 0 hours (baseline) and 96 hours (final timepoint):
+- Calculates log2 fold change between the two timepoints,
+- Computes a p-value using a statistical test (e.g., t-test across biological replicates),
+returns a statistical summary for each gene.
+
+3) Filtering for Significant Genes
+- The p-values from the statistical comparison are adjusted for multiple hypothesis testing using the Benjamini-Hochberg procedure.
+- Genes with an adjusted p-value below a user-defined threshold (P_VALUE_FILTER) are selected as significantly differentially expressed.
+
+Only genes that both: (1) Fall below this significance threshold, and (2) Show a sustained expression change up to 96h are retained for further analysis and output.
+
+#### Mouse Results
+![prolonged_gene_heatmap](results/mouse/heatmap_prolonged_genes.png)
+
+#### Human Results
+![prolonged_gene_heatmap](results/human/heatmap_prolonged_genes.png)
 
 ### Section 2: ATAC-seq analysis
 To determine if chromatin accessibility changes due to dox exposure in stem cells.
