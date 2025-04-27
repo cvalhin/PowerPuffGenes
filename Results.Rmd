@@ -108,6 +108,10 @@ Data Processing
 - Identify downregulated genes lacking associated ATAC peaks.
 
 #### Mouse Results
+- This is how many peaks are common in dox: 38880
+- This is how many peaks are unique to dox condition: 1774
+- This is how many dox common peaks overlapped gene promoters: 18753
+- 
 ![tpm_upgene_compare](results/mouse/bar_tpm_prolonged_down_genes.png)
 ![prolonged_upgene_l2fc](results/mouse/lfc_prolonged_up_genes.png)
 ![prolonged_upgene_tpm](results/mouse/tpm_prolonged_up_genes.png)
