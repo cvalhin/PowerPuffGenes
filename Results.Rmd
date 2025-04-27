@@ -1,0 +1,115 @@
+---
+title: "PowerPuffGenes Report"
+authors: "FN, CV, LP"
+date: (Sys.time(), '%B %Y')
+output: github_document
+editor_options:
+  chunk_output_type: console
+---
+
+# PowerPuffGenes
+RNAseq and ATACseq Time Course Analysis of Doxycycline-Induced Gene Expression
+
+## Introduction
+Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes such as stem cell differentiation and responses to stimuli. This project uses a doxycycline (dox)-inducible system in mouse stem cells to explore gene expression changes over time. In this system, dox activates gene expression via the rtTA-TRE mechanism. However, dox itself may also exert off-target effects on the transcriptome.
+
+## Section 1: Differential Expression Analysis
+Leveraging Dr. Rinn's lab RNA-seq dataset spanning five time points (0, 12, 24, 48, 96 hours) with replicates.
+
+### Methods
+We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differential expression analysis, providing a practical application of bioinformatics skills to time-course data exploration.
+
+### Goals
+1) Identify genes significantly regulated following dox administration.
+2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses.
+3) Investigate the role, significance, and chromosomal location of these genes.
+
+### Section 1.1: DESeq and TPM analysis (RNA-seq data processing)
+
+
+### Section 1.2: Prolonged Gene Selection
+Gene expression changes in response to stimuli can be broadly categorized as transient or prolonged. Transient changes are short-lived and may reflect immediate cellular responses such as signaling events or stress adaptation. In contrast, prolonged changes suggest stable regulatory shifts that may contribute to long-term cellular adaptations. Understanding these patterns can provide insight into gene regulatory mechanisms and cellular dynamics. 
+
+This analysis focuses on identifying genes that exhibit sustained differential expression over a time-course following dox induction, classifying them by when their change begins and persisting through 96 hours.
+
+#### Methods
+
+1) Classifying Genes by Timing of Expression Change
+- A custom function categorize_gene_expression() is used to examine the results of differential expression over time.
+- Each gene is assigned to one of three groups based on the earliest timepoint at which it begins to show a statistically significant change in expression that persists through to 96 hours: 12h-to-96h sustained change, 24h-to-96h sustained change and 48h-to-96h sustained change.
+
+This allows the separation of genes by the onset timing of their response to dox induction.
+
+2) Computing Expression Statistics
+The function calculate_stats() is applied to TPM values of genes in the classified groups.
+For each gene, the function compares expression between 0 hours (baseline) and 96 hours (final timepoint):
+- Calculates log2 fold change between the two timepoints,
+- Computes a p-value using a statistical test (e.g., t-test across biological replicates),
+returns a statistical summary for each gene.
+
+3) Filtering for Significant Genes
+- The p-values from the statistical comparison are adjusted for multiple hypothesis testing using the Benjamini-Hochberg procedure.
+- Genes with an adjusted p-value below a user-defined threshold (P_VALUE_FILTER) are selected as significantly differentially expressed.
+
+Only genes that both: (1) Fall below this significance threshold, and (2) Show a sustained expression change up to 96h are retained for further analysis and output.
+
+#### Mouse Results
+![prolonged_gene_heatmap](results/mouse/heatmap_prolonged_genes.png)
+
+#### Human Results
+![prolonged_gene_heatmap](results/human/heatmap_prolonged_genes.png)
+
+
+### Section 2: ATAC-seq analysis
+To determine if chromatin accessibility of prolonged gene changes due to dox exposure in mouse and human stem cells. We have performed a time course series of experiments measuring chromatin accessibility (ATAC-seq peaks) upon exposure to dox. These are 0, 30, 60, 90, 120, 150 minutes.
+Each time point has a replicate. The fastq sequencing files were processed by the
+NF_CORE ATAC-seq pipeline v-2.12 (https://nf-co.re/atacseq/2.1.2/).
+
+#### Methods
+1) Data Collection
+- ATAC-seq performed at 0, 30, 60, 90, 120, and 150 minutes after dox exposure, with replicates.
+Data Processing
+- Raw fastq files processed using NF-CORE ATACseq pipeline v2.1.2.
+
+2) Peak Import and Consensus Identification
+- Import .broadPeak files with a custom import_peaks() function.
+- Identify consensus peaks across replicates for each time point.
+
+3) Condition-Specific Peaks
+- Define non-dox (0 min) and dox (30–150 min) groups.
+- Find peaks unique to each condition by comparing overlaps.
+
+4) Genome Annotation
+- Load genome annotations (GTF) and define gene promoters (±2 kb from transcription start sites).
+
+5) Functional Overlap Analysis
+- Identify overlaps between dox-specific peaks and gene promoters.
+
+6) Integration with RNA-seq
+- Cross-reference prolonged genes (from RNA-seq) with ATAC-seq promoter overlaps
+- Find upregulated genes with promoter accessibility.
+- Identify downregulated genes lacking associated ATAC peaks.
+
+#### Mouse Results
+![tpm_upgene_compare](results/mouse/bar_tpm_prolonged_down_genes.png)
+![prolonged_upgene_l2fc](results/mouse/lfc_prolonged_up_genes.png)
+![prolonged_upgene_tpm](results/mouse/tpm_prolonged_up_genes.png)
+![tpm_downgene_compare](results/mouse/bar_tpm_prolonged_down_genes.png)
+![prolonged_downgene_l2fc](results/mouse/lfc_prolonged_down_genes.png)
+![prolonged_downgene_tpm](results/mouse/tpm_prolonged_down_genes.png)
+
+#### Human Results
+![tpm_upgene_compare](results/human/bar_tpm_prolonged_up_genes.png)
+![prolonged_upgene_l2fc](results/human/lfc_prolonged_up_genes.png)
+![prolonged_upgene_tpm](results/human/tpm_prolonged_up_genes.png)
+![tpm_downgene_compare](results/human/bar_tpm_prolonged_down_genes.png)
+![prolonged_downgene_l2fc](results/human/lfc_prolonged_down_genes.png)
+
+![prolonged_downgene_tpm](results/human/tpm_prolonged_down_genes.png)
+
+
+### Section 3: IGV
+
+
+
+
