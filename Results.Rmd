@@ -34,6 +34,22 @@ This analysis focuses on identifying genes that exhibit sustained differential e
 
 #### Methods
 
+![**Heatmap of log2 transformed tpm values of prolonged genes in mice.**](result_mouse/heatmap_prolonged_sig_genes_log_tpm.png)
+
+A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment in mice. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours. In this heatmap, the difference in gene expression profiles are notable from time point 24h after dox treatment. 
+
+
+![**Heatmap of log2 transformed tpm values of prolonged genes in human.**](result_human/heatmap_prolonged_sig_genes_log_tpm.png)
+
+A total of 134 genes had a prolonged over or under expression trend up until last sampled time point of 96 hours after Dox treatment in human. Note that in this case, time points 0h show different expression profiles compared to the other time points. Samples from 12h and 24h show similar profiles, suggesting a change in expression in early stages. As time point increases, samples from 48h and 96h form a clearer group, that shows an opposite expression profile from the initial point of 0h. 
+
+## Section 2: ATAC-seq analysis
+To determine if chromatin accessibility changes due to dox exposure in stem cells.
+We have performed a time course series of experiments measuring chromatin accessibility
+(ATACseq peaks) upon exposure to dox. These are 0, 30, 60, 90, 120, 150 minutes.
+Each time point has a replicate. The fastq sequencing files were processed by the
+NF_CORE ATAC-seq pipeline v-2.12 (https://nf-co.re/atacseq/2.1.2/).
+
 1) Classifying Genes by Timing of Expression Change
 - A custom function categorize_gene_expression() is used to examine the results of differential expression over time.
 - Each gene is assigned to one of three groups based on the earliest timepoint at which it begins to show a statistically significant change in expression that persists through to 96 hours: 12h-to-96h sustained change, 24h-to-96h sustained change and 48h-to-96h sustained change.
@@ -145,8 +161,104 @@ Data Processing
 ![prolonged_downgene_tpm](results/human/tpm_prolonged_down_genes.png)
 
 
-### Section 3: IGV
+## Section 3: IGV
+
+To identify conserved genes between human and mouse, we examined potential homologs among the prolonged genes from both species. For this, we used the ortholog search tool available in the [FlyBase](https://flybase.org/) database to assess cross-species gene matches. We did not find any gene matches between mouse and human among the genes with both significant regulation and overlapping ATAC-seq peaks.
+However, in this seciton we will introduce some important genes were we found either over or under expression after dox treatment, potentially affecting their function. 
+
+### Mouse genes
+### Usp26
+
+The [Usp26](https://www.uniprot.org/uniprotkb/Q99MX1/entry) gene has been involved in deubiquitination pathways, making it potentially relevant for gene regulation. There are many transcription factors in the cell, such as  polycomb repressive complex 1 (PRC1), that are in charge of maintaining and regulating epigenetic marks in the genome (Tamburri et al., 2020). Many of these transcription factors, need ubiquitination for their function, making a deubiquitination crucial for this process as well (Mark & Rape, 2021). For example, this gene has been found to be involved in somatic cell reprogramming through the K48 deubiquitination of two protein components of PRC1.
 
 
+![**IGV track with RNA-seq peaks of Usp26 gene.** ](results/IGV/Usp26_IGV_track2.png)
+
+Peaks represent the coverage of sequencing reads across this gene. Note that peaks are higher at 0 and 12 hours, but are lower when 24 hours are reached. They keep beung low until the last time point of 96 hours. Note there are higher expression signals in the nost downstream exon of the Usp26 gene. 
+
+
+![**IGV track with ATAC-seq peaks of Usp26 gene.**](results/IGV/Usp26_gene_track_ATAC.png)
+
+Peaks represent accessible chromatin sites. Samples at 0, 30, 60, 90, 120 and 150 minutes after dox treatment are shown. Note that the epigenetic landscape for this gene seems to be changing overtime, with its higher peak presented at 90 minute after treatment timepoint. This IGV track is showin the accessibility of Usp26 gene in its most upstream exon. Note that this exon is not the same as the one in the RNA seq track.
+
+![**Usp26 gene ATAC and RNA seq IGV tracks combined**](results/IGV/Usp26_mouse_RNA_ATAC.png)
+Peaks represent the coverage of sequencing reads across this gene(RNA, blue peaks), and accessible chromatin sites(ATAC, pink peaks).
+
+
+### Cbr3 
+
+The Carbonyl reductase [NADPH] 3 [(Cbr3)](https://www.uniprot.org/uniprotkb/Q8K354/entry) is an enzyme that uses NADPH to turn harmful carbonyl compounds (especially ortho-quinones) into safer alcohols, possibly protecting cells from damage.
+This gene was upregulated in mice after 
+
+![**Cbr3 gene ATAC and RNA seq IGV tracks combined**](results/IGV/Cbr3_mouse_ATAC_RNA.png)
+Peaks represent the coverage of sequencing reads across this gene(RNA, blue peaks), and accessible chromatin sites(ATAC, pink peaks). Note that ATAC seq peak coincide with the first exon of the gene, suggesting that this is a promotwr region of the gene, that allows for the transcription of the gene, shown  by the RNA seq peaks. Note that the chromatin landscape does not change over time. Note that the RNA seq peaks are higher in the later time point, suggesting an over expression by 96h after dox treatment.  
+
+
+### Human genes 
+
+### MAG 
+
+Myelin associated glycoprotein [(MAG)](https://www.uniprot.org/uniprotkb/P20916/entry) is a cell membrane protein crucial for the formation and maintenance of myelin sheaths in the peripheral and central nervous system. Additionally, the absence of this protein leads to diseases such as multiple sclerosis(MS), suggesting an important role in the integrity and adequate function of the nervous system(Sato et al., 1989).
+
+In our analysis, we found that this gene is down-regulated in humans 96 hours after dox treatment, with no detectable ATAC-seq peak at the final time point, suggesting reduced chromatin accessibility and gene activity, hence protein production.This downregulation may compromise nervous system integrity. However, more research needs to be done in the effects of dox in MAG production to draw any relationships.
+
+![**IGV track with RNA-seq peaks of MAG gene.**](results/IGV/MAG_gene_track_RNA.png)
+Peaks represent the coverage of sequencing reads across this gene. Only peaks from 0 and 96 hours are shown. Note that RNA-seq signal was higher at the 0-hour timepoint but had diminished by 96 hours, indicating a reduction in gene expression over time.
+
+![**IGV track with ATAC-seq peaks of MAG gene.**](results/IGV/MAG_gene_track_ATAC.png)
+
+Peaks represent accessible chromatin sites. Samples at 0, 1 and 2-hours timepoints are shown. Note that most exonic regions of this gene present accessibility. However, there is one peak in an intronic region. Note that the epigenetic landscape for this gene does not change overtime. 
+
+
+![**MAG ATAC and RNA seq peaks combined**](results/IGV/MAG_ATAC_RNA.png)
+
+Peaks represent the coverage of sequencing reads across this gene(RNA, blue peaks), and accessible chromatin sites(ATAC, pink peaks).
+
+### AUTS2
+
+The autism susceptibility gene [(AUTS2)](https://www.uniprot.org/uniprotkb/Q8WXX7/entry) is a component of a polycomb group multiprotein, polycomb repressive complex I (PRC1) -like complex (Tamburri et al., 2020). This complexes are required to maintain the transcriptionally repressive state of many genes, including Hox genes, which are crucial throughout development (Gao et al., 2014). Mutations in this gene have been identified in autism patients, and its suppression in zebrafish embryos was observed to cause microcephaly (Beunders et al., 2013). This role suggests relevance in gene regulation, making it an interesting and possibly important gene to further explore the effects of dox treatment. This gene was upregulated and had accessible chromatin in our analysis, suggesting an increased activity after dox treatment, that persisted at least 96 hours. 
+
+![**IGV track with RNA-seq peaks of AUTS2 gene.**](results/IGV/AUTS2_gene_track_RNA.png)
+Peaks represent the coverage of sequencing reads across this gene. Only peaks from 0 and 96 hours are shown. Note that RNA-seq signal was diminished at 0-hour timepoint, but higher at the 96-hour timepoint indicating an increased gene expression over time.
+
+
+![**IGV track with ATAC-seq peaks of AUTS2 gene.**](results/IGV/AUTS2_gene_track_ATAC.png)
+Peaks represent accessible chromatin sites. Samples at 0, 1 and 2-hours timepoints are shown. Note that AUTS2 gene has multiple accessible points. Note that the epigenetic landscape for this gene does not change overtime. 
+
+![**AUTS2 ATAC and RNA seq peaks combined**](results/IGV/AUTS2_ATAC_RNA.png)
+
+Peaks represent the coverage of sequencing reads across this gene(RNA, blue peaks), and accessible chromatin sites(ATAC, pink peaks).
+
+### NOD1
+
+The Nucleotide-binding oligomerization domain-containing protein 1 [(NOD1)](https://www.uniprot.org/uniprotkb/Q9Y239/entry) is a leucine-rich molecule that can regulate both apoptosis and NF-kappaB activation pathways (Inohara et al., 1999). Given this, it play a crucial role in innate and adaptive immunity by recognizing Gram-negative bacteria and viral double stranded RNA. 
+This gene was upregulated and had open chromatin on our analysis, suggesting an overexpression upon dox treatment. The upregultaion of this gene might be generating an excess immune response, perhaps against dox. More research is needed to further explore this speculation. 
+
+
+![**IGV track with RNA-seq peaks of NOD1 gene.**](results/IGV/NOD1_gene_track_RNA.png)
+Peaks represent the coverage of sequencing reads across this gene. Only peaks from 0 and 96 hours are shown. Note that RNA-seq signal was diminished at 0-hour timepoint, but peaks are higher at the 96-hour timepoint indicating an increased gene expression over time. 
+
+
+![**IGV track with ATAC-seq peaks of NOD1 gene.**](results/IGV/NOD1_gene_track_ATAC.png)
+
+Peaks represent accessible chromatin sites. Samples at 0, 1 and 2-hours timepoints are shown. Note that multiple exons across the NOD1 gene present accessible chromatin throughout all timepoints, especially the most upstream exon. Note that the epigenetic landscape for this gene does not change overtime.   
+
+![**NOD1 ATAC and RNA seq peaks combined**](results/IGV/NOD1_ATAC_RNA.png)
+Peaks represent the coverage of sequencing reads across this gene(RNA, blue peaks), and accessible chromatin sites(ATAC, pink peaks).
+
+## References 
+
+Beunders, G., Voorhoeve, E., Golzio, C., Pardo, L. M., Rosenfeld, J. A., Talkowski, M. E., Simonic, I., Lionel, A. C., Vergult, S., Pyatt, R. E., van de Kamp, J., Nieuwint, A., Weiss, M. M., Rizzu, P., Verwer, L. E. N. I., van Spaendonk, R. M. L., Shen, Y., Wu, B., Yu, T., … Sistermans, E. A. (2013).
+Exonic deletions in AUTS2 cause a syndromic form of intellectual disability and suggest a critical role for the C terminus. American Journal of Human Genetics, 92(2), 210–220. https://doi.org/10.1016/j.ajhg.2012.12.011
+
+Gao, Z., Lee, P., Stafford, J. M., von Schimmelmann, M., Schaefer, A., & Reinberg, D. (2014). An AUTS2-Polycomb complex activates gene expression in the CNS. Nature, 516(7531), 349–354. https://doi.org/10.1038/nature13921
+
+Inohara, N., Koseki, T., del Peso, L., Hu, Y., Yee, C., Chen, S., Carrio, R., Merino, J., Liu, D., Ni, J., & Núñez, G. (1999). Nod1, an Apaf-1-like activator of caspase-9 and nuclear factor-kappaB. The Journal of Biological Chemistry, 274(21), 14560–14567. https://doi.org/10.1074/jbc.274.21.14560
+
+Mark, K. G., & Rape, M. (2021). Ubiquitin‐dependent regulation of transcription in development and disease. EMBO Reports, 22(4), e51078. https://doi.org/10.15252/embr.202051078
+
+Sato, S., Fujita, N., Kurihara, T., Kuwano, R., Sakimura, K., Takahashi, Y., & Miyatake, T. (1989). cDNA cloning and amino acid sequence for human myelin-associated glycoprotein. Biochemical and Biophysical Research Communications, 163(3), 1473–1480. https://doi.org/10.1016/0006-291X(89)91145-5
+
+Tamburri, S., Lavarone, E., Fernández-Pérez, D., Conway, E., Zanotti, M., Manganaro, D., & Pasini, D. (2020). Histone H2AK119 Mono-Ubiquitination Is Essential for Polycomb-Mediated Transcriptional Repression. Molecular Cell, 77(4), 840-856.e5. https://doi.org/10.1016/j.molcel.2019.11.021
 
 
