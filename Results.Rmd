@@ -1,7 +1,6 @@
 ---
 title: "PowerPuffGenes Report"
 authors: "FN, CV, LP"
-date: 2025-04-28
 output: github_document
 editor_options:
   chunk_output_type: console
@@ -12,6 +11,13 @@ RNAseq and ATACseq Time Course Analysis of Doxycycline-Induced Gene Expression
 
 ## Introduction
 Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes such as stem cell differentiation and responses to stimuli. This project uses a doxycycline (dox)-inducible system in mouse stem cells to explore gene expression changes over time. In this system, dox activates gene expression via the rtTA-TRE mechanism. However, dox itself may also exert off-target effects on the transcriptome. Levering from Dr. Rinn's lab RNA-seq data from experiments on mouse and human stem cells with addition of dox at different time points (0, 12, 24, 48, 96 hours), we explore the effects of dox on gene expression.
+
+## Objectives
+1) Identify genes significantly regulated following dox administration.
+2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses.
+3) Investigate the role, significance, and chromosomal location of these genes.
+
+## Section 1: Differential Expression Analysis
 
 The raw sequencing reads were processed using the [nf-core/rnaseq pipeline](https://nf-co.re/rnaseq) version 3.18, a standardized and reproducible bioinformatics pipeline built using [Nextflow](https://www.nextflow.io/).
 
@@ -33,13 +39,6 @@ The pipeline I/O is the following:
     * Alignment files (BAM format): Detailed mapping results (not directly used in this DE analysis but available).
 
 
-## Objectives
-1) Identify genes significantly regulated following dox administration.
-2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses.
-3) Investigate the role, significance, and chromosomal location of these genes.
-
-## Section 1: Differential Expression Analysis
-
 ### Section 1.1: DESeq and TPM analysis (RNA-seq data processing)
 
 #### Quality control analysis using principal component analysis (PCA)
@@ -51,6 +50,9 @@ To explore the overall structure of our mouse RNA-seq dataset and assess how dox
 
 ![PCA_human](results/human/pca_plot.png)
 **Human Results:** In the human samples, PC1 (48% of variance) again drives a clear temporal trajectory from untreated to long‐term doxycycline exposure. The 0 hr replicates cluster at extreme negative PC1 with high PC2 values, underscoring a distinct baseline expression state. At 12 hr, samples shift leftward and downward (negative PC1, lowest PC2), indicating an early, transient off‐target response to doxycycline. By 24 hr, replicates rebound toward the PC1 origin and mid‐range PC2, suggesting that the initial perturbation begins to stabilize. The most dramatic shift occurs by 48 hr and 96 hr, where all replicates move to large positive PC1—reflecting a robust, sustained transcriptional reprogramming—and to intermediate PC2 values. Notably, the 48 hr replicates occupy slightly higher PC2 than the 96 hr ones, hinting at subtle adaptive changes between these later timepoints. Tight clustering of each shape at its timepoint confirms strong replicate consistency, and together these patterns reveal a progressive, time‐dependent remodeling of the human stem cell transcriptome under doxycycline induction.
+
+#### Filtering of RNA-seq results
+To refine our raw DESeq2 results into a high‐confidence set of differential expressed genes, we applied a three‐step filtering strategy. First, we excluded any genes with mean normalized counts (baseMean) at or below our expression threshold (FILTER_THRESHOLD = 0), effectively retaining all genes with measurable expression. Second, we required statistical significance by keeping only those genes whose Benjamini–Hochberg adjusted p-value fell below P_VALUE_FILTER = 0.01. Finally, to focus on biologically meaningful changes, we imposed a magnitude cutoff of |log₂ fold-change| ≥ LOG2_FOLD_FILTER = 1. Genes satisfying all three criteria were carried forward for downstream temporal and functional analyses.
 
 #### Gene expression changes depicted by volcano plots
 We next examined differential expression at each post-dox timepoint using volcano plots. For each comparison (12 hr, 24 hr, 48 hr, and 96 hr vs. 0 hr), we plotted the log₂ fold-change (x-axis) against –log₁₀ of the Benjamini–Hochberg adjusted p-value (y-axis). Vertical dashed lines at ±1 log₂FC and a horizontal dashed line at –log₁₀(p-adj) = 1.3 (p-adj = 0.05) mark our thresholds for biologically meaningful and statistically significant changes. Genes meeting both criteria are highlighted in red (upregulated) or blue (downregulated), while non-significant genes remain gray. These volcano plots provide an intuitive snapshot of how many genes respond, in which direction, and with what confidence at each interval following doxycycline exposure.
