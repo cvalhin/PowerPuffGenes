@@ -2,7 +2,9 @@
 title: "PowerPuffGenes Report"
 authors: "FN, CV, LP"
 date: (Sys.time(), '%B %Y')
-output: github_document
+output: 
+  html_document: 
+    toc: true
 editor_options:
   chunk_output_type: console
 ---
@@ -11,13 +13,29 @@ editor_options:
 RNAseq and ATACseq Time Course Analysis of Doxycycline-Induced Gene Expression
 
 ## Introduction
-Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes such as stem cell differentiation and responses to stimuli. This project uses a doxycycline (dox)-inducible system in mouse stem cells to explore gene expression changes over time. In this system, dox activates gene expression via the rtTA-TRE mechanism. However, dox itself may also exert off-target effects on the transcriptome.
+Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes such as stem cell differentiation and responses to stimuli. This project uses a doxycycline (dox)-inducible system in mouse stem cells to explore gene expression changes over time. In this system, dox activates gene expression via the rtTA-TRE mechanism. However, dox itself may also exert off-target effects on the transcriptome. Levering from Dr. Rinn's lab RNA-seq data from experiments on mouse and human stem cells with addition of dox at different time points (0, 12, 24, 48, 96 hours), we explore the effects of dox on gene expression.
+
+The raw sequencing reads were processed using the [nf-core/rnaseq pipeline](https://nf-co.re/rnaseq) version 3.18, a standardized and reproducible bioinformatics pipeline built using [Nextflow](https://www.nextflow.io/).
+
+- Image from nf-core
+
+In brief, the pipeline performs the following key steps:
+
+1) **Quality Control:** Raw reads were assessed using FastQC and summarised using MultiQC.
+2) **Read Alignment:** Reads were aligned to the mouse reference genome (e.g., GRCm39/mm39, specify version) using the STAR aligner. STAR (Spliced Transcripts Alignment to a Reference) is efficient at mapping RNA-seq reads across splice junctions. 
+3) **Quantification:** Gene expression levels were quantified using Salmon (or RSEM, specify which was used by the pipeline run). Salmon is a fast tool for transcript quantification using quasi-mapping and a lightweight alignment approach, which then summarizes transcript counts to the gene level. 
+
+The pipeline I/O is the following: 
+
+- **Input:** Raw FASTQ files (paired-end reads recommended) and a sample sheet defining the experimental design (samples, conditions, replicates).
+- **Output:** The pipeline generates numerous output files. Key files used in this analysis include:
+    * `salmon.merged.gene_counts.tsv`: Raw gene-level counts estimated by Salmon. Used as input for DESeq2 statistical modeling.
+    * `salmon.merged.gene_tpm.tsv`: Gene-level Transcripts Per Million (TPM) values. Used for expression level interpretation and visualization, as TPM is normalized for gene length and sequencing depth.
+    * `multiqc/multiqc_report.html`: An aggregated quality control report across all samples.
+    * Alignment files (BAM format): Detailed mapping results (not directly used in this DE analysis but available).
+
 
 ## Section 1: Differential Expression Analysis
-Leveraging Dr. Rinn's lab RNA-seq dataset spanning five time points (0, 12, 24, 48, 96 hours) with replicates.
-
-### Methods
-We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differential expression analysis, providing a practical application of bioinformatics skills to time-course data exploration.
 
 ### Goals
 1) Identify genes significantly regulated following dox administration.
@@ -26,6 +44,37 @@ We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differe
 
 ### Section 1.1: DESeq and TPM analysis (RNA-seq data processing)
 
+#### Quality control analysis using principal component analysis (PCA)
+
+To explore the overall structure of our mouse RNA-seq dataset and assess how doxycycline influences the transcriptome over time, we performed principal component analysis (PCA). By reducing the high-dimensional gene space into orthogonal components, PCA enables visualization of the dominant sources of variance across samples—here, five timepoints (0, 12, 24, 48, 96 hr) with three biological replicates each. In this analysis, we centered and scaled the log-transformed TPM values for all genes, then projected each sample onto the first two principal components, which together capture 58% of the total variance. The resulting PCA plot (Figure PCA_mouse) provides a rapid check of sample quality, replicate concordance, and the temporal progression of doxycycline’s impact on gene expression in mouse stem cells.
+
+![PCA_mouse](results/mouse/pca_plot.png)
+**Mouse Results:** The first principal component (PC1, 40% variance) cleanly separates early (0–12 hr) from later timepoints (24–96 hr), indicating a strong time-dependent transcriptional shift following doxycycline exposure. Control (0 hr) and 12 hr replicates cluster tightly on the negative side of PC1, suggesting minimal off-target effects at the earliest timepoint. As exposure lengthens, samples migrate positively along PC1, with 24 hr near the origin and 48 and 96 hr diverging further, reflecting the cumulative transcriptional response. The second component (PC2, 18% variance) captures subtler variation, largely distinguishing individual replicates—most notably one of the 96 hr samples that shifts upward—highlighting minor batch or replicate effects. Surprisingly, the analysis revealed an anomaly in timepoint 24 where it point doesn't cluster with the other two replicates. It will be key to advance with precaution of this outlier result. Overall, the PCA confirms robust replicate cohesion and reveals a progressive, time-driven restructuring of the mouse transcriptome under doxycycline treatment.
+
+![PCA_human](results/human/pca_plot.png)
+**Human Results:** In the human samples, PC1 (48% of variance) again drives a clear temporal trajectory from untreated to long‐term doxycycline exposure. The 0 hr replicates cluster at extreme negative PC1 with high PC2 values, underscoring a distinct baseline expression state. At 12 hr, samples shift leftward and downward (negative PC1, lowest PC2), indicating an early, transient off‐target response to doxycycline. By 24 hr, replicates rebound toward the PC1 origin and mid‐range PC2, suggesting that the initial perturbation begins to stabilize. The most dramatic shift occurs by 48 hr and 96 hr, where all replicates move to large positive PC1—reflecting a robust, sustained transcriptional reprogramming—and to intermediate PC2 values. Notably, the 48 hr replicates occupy slightly higher PC2 than the 96 hr ones, hinting at subtle adaptive changes between these later timepoints. Tight clustering of each shape at its timepoint confirms strong replicate consistency, and together these patterns reveal a progressive, time‐dependent remodeling of the human stem cell transcriptome under doxycycline induction.
+
+#### Gene expression changes depicted by volcano plots
+We next examined differential expression at each post-dox timepoint using volcano plots. For each comparison (12 hr, 24 hr, 48 hr, and 96 hr vs. 0 hr), we plotted the log₂ fold-change (x-axis) against –log₁₀ of the Benjamini–Hochberg adjusted p-value (y-axis). Vertical dashed lines at ±1 log₂FC and a horizontal dashed line at –log₁₀(p-adj) = 1.3 (p-adj = 0.05) mark our thresholds for biologically meaningful and statistically significant changes. Genes meeting both criteria are highlighted in red (upregulated) or blue (downregulated), while non-significant genes remain gray. These volcano plots provide an intuitive snapshot of how many genes respond, in which direction, and with what confidence at each interval following doxycycline exposure.
+
+![Volcano_mouse](results/mouse/volcano_baseline.png)
+**Mouse Results**: At 12 hr post-dox (top left), only a small cohort of genes cross both significance thresholds, with modest fold-changes clustered just beyond ±1 log₂FC. This early, limited response likely reflects immediate off-target or stress-related effects of doxycycline. By 24 hr (top right), the number of significant hits grows substantially: dozens of genes become upregulated or downregulated, though most fold-changes remain within ±5-fold. The response peaks at 48 hr (bottom left), where hundreds of genes achieve highly significant p-values (–log₁₀(p-adj) > 100 for the strongest hits) and larger fold-changes extend well beyond ±5 log₂FC. This dramatic expansion indicates a robust transcriptional reprogramming as the system fully engages under doxycycline. At 96 hr (bottom right), the total count of differentially expressed genes remains high, but both the number of extreme fold-changes and the height of significance tails off slightly compared to 48 hr, suggesting that after two days of induction the transcriptome begins to reach a new steady state. Overall, the volcano plots trace a gradual escalation from a muted early perturbation to a maximal, widespread gene‐expression shift by 48 hr, followed by partial stabilization at 96 hr.
+
+![Volcano_human](results/human/volcano_baseline.png)
+**Human Results:** In the human samples, doxycycline induces a rapid and sweeping transcriptional reprogramming that intensifies over time. At 12 hr (top left), the volcano plot is skewed toward repression: hundreds of genes fall below –1 log₂FC with –log₁₀(p-adj) values well above the 1.3 significance threshold, while fewer genes are significantly upregulated. By 24 hr (top right), both up- and downregulated cohorts expand markedly—more genes cross the ±1 log₂FC lines and reach higher –log₁₀(p-adj) values—signaling an amplified response as target induction and off-target effects converge. The 48 hr comparison (bottom left) represents the peak of differential expression: thousands of genes on both sides exceed our cutoffs, fold-changes stretch beyond ±20 log₂FC, and –log₁₀(p-adj) tops 200, reflecting full engagement of doxycycline‐driven programs. By 96 hr (bottom right), although the total count of significant genes remains high, both the extreme fold-changes and the very highest significance levels recede slightly from the 48 hr maximum, suggesting that the human transcriptome is beginning to stabilize into its new, induced state.
+
+#### Overall patterns and locus of gene expression changes ilustrated by circos plot 
+
+To gain a genome-wide perspective on where doxycycline-responsive genes reside, we plotted differential expression loci on a circos diagram mapped to the mm10 mouse and hg38 human reference. Each concentric ring corresponds to one comparison against the 0 hr baseline—outermost for 12 hr, then 24 hr, 48 hr, and innermost for 96 hr—showing per-gene log₂ fold-changes as radial deviations from the dashed zero line. Red dots mark upregulated genes, blue dots mark downregulated genes, and their angular positions correspond to chromosomal coordinates on the ideogram. This multi-track layout allows us to visualize both the temporal evolution of fold-change magnitude and the chromosomal distribution of responsive genes, revealing whether expression changes cluster in particular genomic regions or disperse broadly across the karyotype.
+
+![Circos_mouse](results/mouse/circos.png)
+**Mouse Results:** At 12 hr, only a sparse scattering of red and blue points appears in the outermost ring, indicating a few loci—on chromosomes such as 2, 7, and 11—respond early, but with modest magnitude. By 24 hr, the second ring fills out with more dysregulated genes evenly distributed across nearly all autosomes, hinting at a genome-wide engagement of transcriptional programs. The 48 hr track exhibits the greatest density and radial extent of points: both up- and downregulated genes sprawl across every chromosome, with particularly pronounced clusters on chromosomes 3, 5, and X, signifying peak fold-changes and statistical confidence at this timepoint. Finally, the innermost 96 hr ring shows that while differential expression remains widespread, the overall density and radial distances of dots diminish slightly compared to 48 hr—suggesting that, after two days of induction, the transcriptome begins to settle into its new steady state. Throughout, the lack of tight hotspots and the broad chromosomal coverage emphasize that doxycycline’s off-target and induced effects orchestrate a coordinated, genome-wide transcriptional response rather than a locus-specific phenomenon.
+
+![Circos_human](results/human/circos.png)
+**Human Results:** In the human circos plot, the temporal escalation of differential expression mirrors—and even exceeds—the breadth seen in mouse. In the outermost 12 hr ring, only a smattering of red and blue points appears across autosomes 1–22 and X, indicating an early but modest off-target effect. By 24 hr (second ring), the density of dysregulated loci grows substantially: upregulated (red) and downregulated (blue) genes span nearly every chromosome, with slight enrichments on chromosomes 2, 7, and 12. At 48 hr (third ring), the plot reaches its apex—dots crowd each sector, often extending farther from the zero-line than at earlier timepoints, and both up- and down-regulated genes distribute almost uniformly around the circle. Finally, at 96 hr (innermost ring), while differential expression remains pervasive, the overall radial distances of the points contract only marginally compared to 48 hr, suggesting that human cells maintain a sustained, genome-wide transcriptional reprogramming after four days of doxycycline induction. The absence of narrow hotspots and the consistent chromosomal coverage reinforce that, as in mouse, doxycycline’s effects in human stem cells unfold as a coordinated, global remodeling of gene expression rather than a locus-specific response.
+
+#### Summary and next steps
+Here we have established that doxycycline induces a clear, time‐dependent transcriptional program in both mouse and human stem cells: PCA revealed a progressive shift from baseline through 96 hr with tight replicate cohesion (aside from one outlier at 24 hr in mouse), volcano plots quantified the escalating number and magnitude of differentially expressed genes—peaking at 48 hr before partially stabilizing at 96 hr—and circos diagrams showed that these changes occur broadly and evenly across all chromosomes rather than at isolated hotspots. Having characterized when, how strongly, and where in the genome genes respond to doxycycline, we now turn in Section 1.2 to a gene‐centric analysis: classifying transcripts by the earliest timepoint at which they become significantly deregulated and assessing which of these changes persist through the full 96 hr course. This will allow us to distinguish transient “early responders” from sustained, long‐term shifts and prioritize candidates for downstream functional follow-up.
 
 ### Section 1.2: Prolonged Gene Selection
 Gene expression changes in response to stimuli can be broadly categorized as transient or prolonged. Transient changes are short-lived and may reflect immediate cellular responses such as signaling events or stress adaptation. In contrast, prolonged changes suggest stable regulatory shifts that may contribute to long-term cellular adaptations. Understanding these patterns can provide insight into gene regulatory mechanisms and cellular dynamics. 
