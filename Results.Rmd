@@ -34,14 +34,33 @@ This analysis focuses on identifying genes that exhibit sustained differential e
 
 #### Methods
 
-![**Heatmap of log2 transformed tpm values of prolonged genes in mice.**](result_mouse/heatmap_prolonged_sig_genes_log_tpm.png)
+1) Classifying Genes by Timing of Expression Change
+- A custom function categorize_gene_expression() is used to examine the results of differential expression over time.
+- Each gene is assigned to one of three groups based on the earliest timepoint at which it begins to show a statistically significant change in expression that persists through to 96 hours: 12h-to-96h sustained change, 24h-to-96h sustained change and 48h-to-96h sustained change.
 
-A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment in mice. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours. In this heatmap, the difference in gene expression profiles are notable from time point 24h after dox treatment. 
+This allows the separation of genes by the onset timing of their response to dox induction.
 
+2) Computing Expression Statistics
+The function calculate_stats() is applied to TPM values of genes in the classified groups.
+For each gene, the function compares expression between 0 hours (baseline) and 96 hours (final timepoint):
+- Calculates log2 fold change between the two timepoints,
+- Computes a p-value using a statistical test (e.g., t-test across biological replicates),
+returns a statistical summary for each gene.
 
-![**Heatmap of log2 transformed tpm values of prolonged genes in human.**](result_human/heatmap_prolonged_sig_genes_log_tpm.png)
+3) Filtering for Significant Genes
+- The p-values from the statistical comparison are adjusted for multiple hypothesis testing using the Benjamini-Hochberg procedure.
+- Genes with an adjusted p-value below a user-defined threshold (P_VALUE_FILTER) are selected as significantly differentially expressed.
 
-A total of 134 genes had a prolonged over or under expression trend up until last sampled time point of 96 hours after Dox treatment in human. Note that in this case, time points 0h show different expression profiles compared to the other time points. Samples from 12h and 24h show similar profiles, suggesting a change in expression in early stages. As time point increases, samples from 48h and 96h form a clearer group, that shows an opposite expression profile from the initial point of 0h. 
+Only genes that both: (1) Fall below this significance threshold, and (2) Show a sustained expression change up to 96h are retained for further analysis and output.
+
+#### Mouse Results
+![prolonged_gene_heatmap](results/mouse/heatmap_prolonged_genes.png)
+A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment in mice. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours. In this heatmap, the difference in gene expression profiles are notable from time point 24h after dox treatment.
+
+#### Human Results
+![prolonged_gene_heatmap](results/human/heatmap_prolonged_genes.png)
+A total of 134 genes had a prolonged over or under expression trend up until last sampled time point of 96 hours after Dox treatment in human. Note that in this case, time points 0h show different expression profiles compared to the other time points. Samples from 12h and 24h show similar profiles, suggesting a change in expression in early stages. As time point increases, samples from 48h and 96h form a clearer group, that shows an opposite expression profile from the initial point of 0h.
+
 
 ## Section 2: ATAC-seq analysis
 To determine if chromatin accessibility changes due to dox exposure in stem cells.
