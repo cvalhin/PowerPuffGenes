@@ -1,7 +1,7 @@
 ---
 title: "PowerPuffGenes Report"
 authors: "FN, CV, LP"
-date: (Sys.time(), '%B %Y')
+date: 2025-04-28
 output: github_document
 editor_options:
   chunk_output_type: console
@@ -180,9 +180,15 @@ for (comp_name in names(comparison_list)) {
   }
 }
 
+results_unique <- unique(results$gene_name)
+results_unique <- as.data.frame(results_unique)
+print(c("This are the total genes for all our comparisons before filtering", length(results_unique$results_unique)))
+
 # Filter based on p-value and log2fold changes defined at top
 filtered_results <- results %>%
   filter(padj < P_VALUE_FILTER, abs(log2FoldChange) > LOG2_FOLD_FILTER)
+
+print(c("This are the total genes our filtered results with the se pvalue and log2 fold filter",  length(filtered_results$gene_name)))
 
 # Get unique gene names that are significant
 filtered_genes <- filtered_results %>%
