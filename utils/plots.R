@@ -592,3 +592,56 @@ plot_circos_differential_expression <- function(annotated_results,
   # Close device
   dev.off()
 }
+
+
+##################################################
+########## TPM Plot with Peak Group ##############
+##################################################
+plot_tpm_atac <- function(avg_tpm_up_prolonged_genes,
+                          avg_tpm_up_prolonged_genes_nopeak,
+                          title = "Mean TPM ± SEM at Each Timepoint",
+                          output_file = NULL, width = 10, height = 6, 
+                          dpi = 500) {
+# Number of genes
+n_peak <- nrow(avg_tpm_up_prolonged_genes)
+n_nopeak <- nrow(avg_tpm_up_prolonged_genes_nopeak)
+
+# Means
+means_peak <- colMeans(avg_tpm_up_prolonged_genes, na.rm = TRUE)
+means_nopeak <- colMeans(avg_tpm_up_prolonged_genes_nopeak, na.rm = TRUE)
+
+# Standard deviations
+sd_peak <- apply(avg_tpm_up_prolonged_genes, 2, sd, na.rm = TRUE)
+sd_nopeak <- apply(avg_tpm_up_prolonged_genes_nopeak, 2, sd, na.rm = TRUE)
+
+# Calculate SEM
+sem_peak <- sd_peak / sqrt(n_peak)
+sem_nopeak <- sd_nopeak / sqrt(n_nopeak)
+
+# Make combined data frame
+df_combined <- data.frame(
+  timepoint = rep(names(means_peak), 2),
+  mean_tpm = c(means_peak, means_nopeak),
+  sem_tpm = c(sem_peak, sem_nopeak),
+  group = rep(c(
+    paste0("Peak (n = ", n_peak, ")"),
+    paste0("No Peak (n = ", n_nopeak, ")")
+  ), each = length(means_peak))
+)
+
+prolonged_tpm <- ggplot(df_combined, aes(x = timepoint, y = mean_tpm, fill = group)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = mean_tpm - sem_tpm, ymax = mean_tpm + sem_tpm),
+                width = 0.2, position = position_dodge(width = 0.9)) +
+  theme_minimal() +
+  labs(title = title,
+       x = "Timepoint",
+       y = "Mean TPM",
+       fill = "Group") +
+  scale_fill_manual(values = c("grey", "orange"))
+
+# Save if output file specified
+if (!is.null(output_file)) {
+  ggsave(output_file, prolonged_tpm, width = width, height = height, dpi = dpi)}
+}
+

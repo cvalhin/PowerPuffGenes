@@ -91,14 +91,18 @@ Data Processing
 - Identify downregulated genes lacking associated ATAC peaks.
 
 #### Mouse Results
+![tpm_upgene_compare](results/mouse/bar_tpm_prolonged_down_genes.png)
 ![prolonged_upgene_l2fc](results/mouse/lfc_prolonged_up_genes.png)
 ![prolonged_upgene_tpm](results/mouse/tpm_prolonged_up_genes.png)
+![tpm_downgene_compare](results/mouse/bar_tpm_prolonged_down_genes.png)
 ![prolonged_downgene_l2fc](results/mouse/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/mouse/tpm_prolonged_down_genes.png)
 
 #### Human Results
+![tpm_upgene_compare](results/human/bar_tpm_prolonged_up_genes.png)
 ![prolonged_upgene_l2fc](results/human/lfc_prolonged_up_genes.png)
 ![prolonged_upgene_tpm](results/human/tpm_prolonged_up_genes.png)
+![tpm_downgene_compare](results/human/bar_tpm_prolonged_down_genes.png)
 ![prolonged_downgene_l2fc](results/human/lfc_prolonged_down_genes.png)
 
 ![prolonged_downgene_tpm](results/human/tpm_prolonged_down_genes.png)

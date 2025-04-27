@@ -5,7 +5,6 @@ date: (Sys.time(), '%B %Y')
 output: github_document
 editor_options:
   chunk_output_type: console
-#bibliography: source_code/references_human.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -329,8 +328,19 @@ significant_genes <- selected_tpm[selected_tpm$adjusted_pvalue < P_VALUE_FILTER,
 genes_of_interest <- significant_genes %>% select(gene_name, change_from, tpm_log2fc)
 genes_of_interest <- genes_of_interest[order(genes_of_interest$change_from),]
 
+# Get transient genes
+transient_genes <- filtered_genes[!(filtered_genes$gene_name %in%
+                                      genes_of_interest$gene_name),]
+
 # Save to csv file
 write_csv(genes_of_interest, file.path(RESULTS_PATH, "prolonged_gene_list.csv"))
+
+print(paste("Number of genes with expression sustained until the end:",
+            length(genes_of_interest$gene_name)))
+
+print(paste("Number of genes exhibiting transient expression:",
+            length(transient_genes$gene_name)))
+
 ```
 
 ### Heatmaps
@@ -446,8 +456,8 @@ print(c("This is how many peaks are unique to non-dox condition", length(unique_
 
 # Peaks unique to dox
 unique_to_dox <- suppressWarnings(find_my_peaks(dox_non_dox_ov, dox_common_peaks))
-
 print(c("This is how many peaks are unique to dox condition", length(unique_to_dox)))
+
 ```
 
 
@@ -467,36 +477,124 @@ gene_promoters <- promoters(gencode_genes, upstream = 2000, downstream = 2000)
 Now we will overlap our dox and non-dox unique peaks with genome annotations (gene promoters)
 First we will find number of overlaps with gene promoters and then genes that had changed in RNAseq
 ```{r dox peaks overalp gene promoters, dependson="previous_chunk"}
-
 # peaks common to dox condition overlapped with gene promoters
 gr_list_gene_promoter_dox_ov <- list(gene_promoters = gene_promoters, dox_peaks = dox_common_peaks)
 dox_gene_promoter_ov <- suppressWarnings(find_common_peaks(gr_list_gene_promoter_dox_ov))
 
 print(c("This is how many dox common peaks overlapped gene promoters", length(dox_gene_promoter_ov)))
+
+gr_list_gene_promoter_dox_ov <-  list(gene_promoters = gene_promoters, dox_peaks = unique_to_dox)
+unique_to_dox_gene_promoter_ov <- suppressWarnings(find_common_peaks(gr_list_gene_promoter_dox_ov))
+
+print(c("This is how many dox unique peaks overlapped gene promoters", length(unique_to_dox_gene_promoter_ov)))
+
+# peaks common to non-dox condition overlapped with gene promoters
+gr_list_gene_promoter_dox_ov <- list(gene_promoters = gene_promoters, dox_peaks = non_dox_common_peaks)
+non_dox_gene_promoter_ov <- suppressWarnings(find_common_peaks(gr_list_gene_promoter_dox_ov))
+
+print(c("This is how many non_dox common peaks overlapped gene promoters", length(non_dox_gene_promoter_ov)))
+
+gene_promoter_lostindox <- setdiff(non_dox_gene_promoter_ov$gene_name,
+                                   dox_gene_promoter_ov$gene_name)
+print(c("This is how many dox lost peaks overlapped gene promoters", length(gene_promoter_lostindox)))
 ```
 
 
 ### Matching ATAC peaks to prolonged genes
 ```{r matching peaks wirh prolonged genes RNAseq}
-# filter upregulated-prolonged genes to dox promoter overlaps
+# filter upregulated-prolonged genes
 up_genes <- genes_of_interest %>%
   filter(tpm_log2fc > 0)
 print(c("this is how many prolonged genes that are upregulated with dox", length(up_genes$gene_name)))
+
+# get TPM for all prolonged genes that are upregulated
+tpm_up_genes <- avg_and_sd_values[avg_and_sd_values$gene_name %in% 
+                                    up_genes$gene_name, ]
+avg_tpm_up_genes <- tpm_up_genes[, grep("_avg", colnames(tpm_up_genes))]
+print("TPM summary of prolonged genes that are upregulated with dox")
+print(summary(avg_tpm_up_genes))
+
+unique_gene_promoters <- intersect(unique_to_dox_gene_promoter_ov$gene_name, up_genes$gene_name)
+print(c("this is how many upregulated-prolonged genes overlapped with unique dox gene promoters", length(unique_gene_promoters)))
+if (length(unique_gene_promoters) > 0) {
+  print(unique_gene_promoters)
+}
+
+# filter upregulated-prolonged genes to dox promoter overlaps
 up_prolonged_rnaseq_atac_dox <- dox_gene_promoter_ov[dox_gene_promoter_ov$gene_name %in% up_genes$gene_name]
 up_atac_genes <- up_genes %>%
   filter(gene_name %in% up_prolonged_rnaseq_atac_dox$gene_name)
 
 print(c("this is how many upregulated genes overlap between prolonged expression and ATACseq dox peaks", length(up_prolonged_rnaseq_atac_dox)))
 
-# filter downregulated-prolonged genes to non dox promoter overlaps
+# get TPM for prolonged genes that are upregulated with ATAC peaks
+tpm_up_prolonged_genes <- avg_and_sd_values[avg_and_sd_values$gene_name %in%
+                                              up_atac_genes$gene_name, ]
+avg_tpm_up_prolonged_genes <- tpm_up_prolonged_genes[, grep("_avg",
+                                                            colnames(tpm_up_prolonged_genes))]
+print("TPM summary of prolonged genes that are upregulated with ATAC peaks in dox")
+print(summary(avg_tpm_up_prolonged_genes))
+
+# get TPM for prolonged genes that are upregulated without ATAC peaks
+up_no_atac_genes <- setdiff(up_genes$gene_name, up_atac_genes$gene_name)
+tpm_up_prolonged_genes_nopeak <- avg_and_sd_values[avg_and_sd_values$gene_name %in%
+                                              up_no_atac_genes, ]
+avg_tpm_up_prolonged_genes_nopeak <- tpm_up_prolonged_genes_nopeak[, grep("_avg",
+                                                        colnames(tpm_up_prolonged_genes_nopeak))]
+print("TPM summary of prolonged genes that are upregulated without ATAC peaks in dox")
+print(summary(avg_tpm_up_prolonged_genes_nopeak))
+
+# plot avg TPM for upregulated-prolonged genes with peaks and no peak
+plot_tpm_atac(avg_tpm_up_prolonged_genes, avg_tpm_up_prolonged_genes_nopeak,
+              title="Mean TPM ± SEM of Upregulated-Prolonged Genes",
+              output_file=file.path(RESULTS_PATH, "bar_tpm_prolonged_up_genes.png"))
+
+# filter downregulated-prolonged genes
 down_genes <- genes_of_interest %>%
   filter(tpm_log2fc < 0)
 print(c("this is how many prolonged genes that are downregulated with dox", length(down_genes$gene_name)))
+
+# get TPM for all prolonged genes that are downregulated
+tpm_down_genes <- avg_and_sd_values[avg_and_sd_values$gene_name %in% 
+                                    down_genes$gene_name, ]
+avg_tpm_down_genes <- tpm_down_genes[, grep("_avg", colnames(tpm_down_genes))]
+print("TPM summary of prolonged genes that are downregulated with dox")
+print(summary(avg_tpm_down_genes))
+
+lost_gene_promoters <- intersect(gene_promoter_lostindox, down_genes$gene_name)
+print(c("this is how many downregulated-prolonged genes overlapped with the lost gene promoters in dox", length(lost_gene_promoters)))
+if (length(lost_gene_promoters) > 0) {
+  print(lost_gene_promoters)
+}
+
+# filter downregulated-prolonged genes to non dox promoter overlaps
 down_prolonged_rnaseq_atac_dox <- dox_gene_promoter_ov[dox_gene_promoter_ov$gene_name %in% down_genes$gene_name]
-down_atac_genes <- down_genes %>%
+down_no_atac_genes <- down_genes %>%
   filter(!(gene_name %in% down_prolonged_rnaseq_atac_dox$gene_name))
 
 print(c("this is how many downregulated genes that couldn't find ATACseq peaks in dox", length(down_prolonged_rnaseq_atac_dox)))
+
+# get TPM for all prolonged genes that are downregulated without peak
+tpm_down_prolonged_genes_nopeak <- avg_and_sd_values[avg_and_sd_values$gene_name %in%
+                                                     down_no_atac_genes$gene_name, ]
+avg_tpm_down_prolonged_genes_nopeak <- tpm_down_prolonged_genes_nopeak[, grep("_avg",
+                                                        colnames(tpm_down_prolonged_genes_nopeak))]
+print("TPM summary of prolonged genes that are downregulated with no peak in dox")
+print(summary(avg_tpm_down_prolonged_genes_nopeak))
+
+# get TPM for all prolonged genes that are downregulated with peak
+down_atac_genes <- setdiff(down_genes$gene_name, down_no_atac_genes$gene_name)
+tpm_down_prolonged_genes <- avg_and_sd_values[avg_and_sd_values$gene_name %in%
+                                              down_atac_genes, ]
+avg_tpm_down_prolonged_genes <- tpm_down_prolonged_genes[, grep("_avg",
+                                                        colnames(tpm_up_prolonged_genes))]
+print("TPM summary of prolonged genes that are downregulated with ATAC peaks in dox")
+print(summary(avg_tpm_down_prolonged_genes))
+
+# plot avg TPM for downregulated-prolonged genes with peaks and no peak
+plot_tpm_atac(avg_tpm_down_prolonged_genes, avg_tpm_down_prolonged_genes_nopeak,
+              title="Mean TPM ± SEM of Downregulated-Prolonged Genes",
+              output_file=file.path(RESULTS_PATH, "bar_tpm_prolonged_down_genes.png"))
 ```
 
 ### Log2FoldChange Plots
@@ -511,7 +609,7 @@ lfc_plot <- plot_lfc_prolonged(
 # Generate log fold change plot for downregulated genes
 lfc_plot <- plot_lfc_prolonged(
   results, 
-  down_atac_genes,
+  down_no_atac_genes,
   output_file = file.path(RESULTS_PATH, "lfc_prolonged_down_genes.png")
 )
 ```
@@ -530,7 +628,7 @@ tpm_plot <- plot_tpm_prolonged(
 # Generate TPM plot for downregulated genes
 tpm_plot <- plot_tpm_prolonged(
   avg_and_sd_values, 
-  down_atac_genes, 
+  down_no_atac_genes, 
   g2s, 
   filtered_results,
   output_file = file.path(RESULTS_PATH, "tpm_prolonged_down_genes.png")
