@@ -203,7 +203,7 @@ Peaks represent the coverage of sequencing reads across this gene(RNA, blue peak
 ### Cbr3 
 
 The Carbonyl reductase [NADPH] 3 [(Cbr3)](https://www.uniprot.org/uniprotkb/Q8K354/entry) is an enzyme that uses NADPH to turn harmful carbonyl compounds (especially ortho-quinones) into safer alcohols, possibly protecting cells from damage.
-This gene was upregulated in mice after 
+This gene was upregulated in mice after 48 hours and keeps being upregulated for at least 96 hours after dox treatment.
 
 ![**Cbr3 gene ATAC and RNA seq IGV tracks combined**](results/IGV/Cbr3_mouse_ATAC_RNA.png)
 Peaks represent the coverage of sequencing reads across this gene(RNA, blue peaks), and accessible chromatin sites(ATAC, pink peaks). Note that ATAC seq peak coincide with the first exon of the gene, suggesting that this is a promotwr region of the gene, that allows for the transcription of the gene, shown  by the RNA seq peaks. Note that the chromatin landscape does not change over time. Note that the RNA seq peaks are higher in the later time point, suggesting an over expression by 96h after dox treatment.  
