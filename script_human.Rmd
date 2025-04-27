@@ -407,7 +407,7 @@ prolonged_genes_heatmap <- plot_gene_heatmap(
   data_matrix = prolonged_genes_data$numeric_matrix,
   title = paste0("Heatmap of Log2-Transformed TPM Values of Prolonged Genes (", 
                 toupper(SPECIES), ")"),
-  show_gene_names = TRUE,
+  show_gene_names = FALSE,
   output_file = file.path(RESULTS_PATH, "heatmap_prolonged_genes.png")
 )
 ```
