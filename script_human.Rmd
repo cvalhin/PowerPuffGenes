@@ -137,7 +137,6 @@ dds <- DESeq(dds)
 ```{r PCA analysis of the samples}
 pca_plot <- plot_pca(dds, intgroup=c("time_point", "replicate"))
 ggsave(file.path(RESULTS_PATH, "pca_plot.png"), pca_plot, width = 8, height = 6, dpi = 300)
-print(pca_plot)
 ```
 
 ### Obtaining and filtering count results
@@ -272,8 +271,42 @@ plot_timeseries <- create_volcano_plot(
 )
 ```
 
+### Circos Plot
+```{r circos plot}
+# Define chromosomes based on species
+valid_chromosomes <- if(SPECIES == "mouse") {
+  paste0("chr", c(1:19, "X", "Y"))
+} else if(SPECIES == "human") {
+  paste0("chr", c(1:22, "X", "Y"))
+} else {
+  stop("Invalid species: ", SPECIES)
+}
 
-### TODO: provide interpretation/conclusion for all the graphs included above and make a link to why we should care about prolonged gene changes
+# Prepare gene annotations
+gene_locations <- prepare_gene_annotations(
+  gtf_file = GTF_PATH,
+  valid_chromosomes = valid_chromosomes
+)
+
+# Merge DE results with annotations
+annotated_results <- merge_results_with_annotations(
+  de_results = filtered_results,
+  gene_locations = gene_locations
+)
+
+# Generate circos plot
+# Using only baseline comparisons (time vs 0)
+baseline_comparisons <- grep("_vs_0$", unique(annotated_results$comparison), value = TRUE)
+
+plot_circos_differential_expression(
+  annotated_results = annotated_results,
+  output_file = file.path(RESULTS_PATH, "circos.png"),
+  comparisons = baseline_comparisons,
+  color_cap = 2,       # Cap color intensity at log2FC = 2
+  point_size = 0.6,    # Size of points
+  track_height = 0.15  # Height of each track
+)
+```
 
 ## 1.2) Gene selection
 To identify and visualize prolonged and transient expression patterns from significant gene expression dynamics after dox induction

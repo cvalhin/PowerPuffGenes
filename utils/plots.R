@@ -25,13 +25,13 @@ plot_pca <- function(dds, intgroup="time_point", ntop=500) {
 ############# Counts Histogram Plot ##############
 ##################################################
 plot_count_distributions <- function(results_df, 
-                                  metrics = c("baseMean", "lfcSE", "padj", "log2FoldChange"),
-                                  labels = c("Base Mean", "LFC Standard Error", 
-                                             "Adjusted P-value", "Log2 Fold Change"),
-                                  colors = c("#3498db", "#2ecc71", "#e74c3c", "#f1c40f"),
-                                  output_file = NULL,
-                                  width = 10, 
-                                  height = 8) {
+                                     metrics = c("baseMean", "lfcSE", "padj", "log2FoldChange"),
+                                     labels = c("Base Mean", "LFC Standard Error", 
+                                                "Adjusted P-value", "Log2 Fold Change"),
+                                     colors = c("#3498db", "#2ecc71", "#e74c3c", "#f1c40f"),
+                                     output_file = NULL,
+                                     width = 10, 
+                                     height = 8) {
   
   # Prepare the data for plotting
   histogram_data <- results_df %>%
@@ -427,7 +427,6 @@ plot_gene_heatmap <- function(data_matrix,
   return(heatmap_plot)
 }
 
-
 ##################################################
 ################# Circos Plot ####################
 ##################################################
@@ -441,40 +440,46 @@ plot_circos_differential_expression <- function(annotated_results,
                                                 point_size = 0.6,
                                                 track_height = 0.15,
                                                 ylim = c(-20, 20)) {
-  
   # Initialize output file
   png(output_file, width = width, height = height, res = resolution)
-  
   # Clear existing circos plots
   circos.clear()
-  
-  # Create a correctly ordered factor for chromosomes
-  sorted_chrs <- factor(
-    paste0("chr", c(1:19, "X", "Y")),
-    levels = paste0("chr", c(1:19, "X", "Y"))
-  )
-  
+  # Determine species based on chromosomes
+  species <- if(any(grepl("chr22", unique(annotated_results$chr)))) {
+    "Human (hg38)"
+  } else {
+    "Mouse (mm10)"
+  }
+  # Create a correctly ordered factor for chromosomes based on species
+  if(species == "Human (hg38)") {
+    sorted_chrs <- factor(
+      paste0("chr", c(1:22, "X", "Y")),
+      levels = paste0("chr", c(1:22, "X", "Y"))
+    )
+    species_code <- "hg38"
+  } else {
+    sorted_chrs <- factor(
+      paste0("chr", c(1:19, "X", "Y")),
+      levels = paste0("chr", c(1:19, "X", "Y"))
+    )
+    species_code <- "mm10"
+  }
   # Set up circos parameters
   circos.par(start.degree = 90, gap.degree = 2)
-  
   # Initialize with ideogram
   circos.initializeWithIdeogram(
-    species = "mm10",
+    species = species_code,
     chromosome.index = levels(sorted_chrs)
   )
-  
   # Filter comparisons if specified
   if (!is.null(comparisons)) {
     annotated_results <- annotated_results %>%
       filter(comparison %in% comparisons)
   }
-  
   # Get unique comparisons
   time_points <- unique(annotated_results$comparison)
-  
   # Find global max log2FC value with margin
   global_max_fc <- max(abs(annotated_results$log2FoldChange), na.rm = TRUE) * 1.2
-  
   # Define color mapping function
   get_color <- function(value) {
     if (is.na(value)) return("gray80")
@@ -489,7 +494,6 @@ plot_circos_differential_expression <- function(annotated_results,
       return("white")  # Zero value
     }
   }
-  
   # Function to plot each comparison
   plot_timepoint_comparison <- function(comparison_data, track_title) {
     if (nrow(comparison_data) > 0) {
@@ -512,10 +516,8 @@ plot_circos_differential_expression <- function(annotated_results,
               cex = point_size
             )
           }
-          
           # Add horizontal line at y=0
           circos.lines(CELL_META$xlim, c(0, 0), col = "black", lty = 2)
-          
           # Add track title on the first sector
           if (CELL_META$sector.index == levels(sorted_chrs)[1]) {
             circos.text(
@@ -534,32 +536,26 @@ plot_circos_differential_expression <- function(annotated_results,
       message(paste("No data for comparison:", track_title))
     }
   }
-  
   # Plot each timepoint comparison
   for (time_point in time_points) {
     comparison_data <- annotated_results %>%
       filter(comparison == time_point) %>%
       dplyr::select(chr, start, end, log2FoldChange)
-    
     plot_timepoint_comparison(comparison_data, time_point)
   }
-  
   # Add title and legend
-  title(main = "Differential Expression Across Time Points", cex.main = 1.2)
+  title(main = paste0("Differential Expression Across Time Points (", species, ")"), cex.main = 1.2)
   par(xpd = TRUE)
-  
   # Add color legend
   legend_values <- seq(-color_cap, color_cap, length.out = 7)
   legend_x <- 0.9
   legend_y <- -1.3
   color_legend_width <- 0.2
   color_legend_height <- 0.02
-  
   # Draw color bar segments
   for (i in 1:(length(legend_values)-1)) {
     mid_val <- (legend_values[i] + legend_values[i+1]) / 2
     segment_color <- get_color(mid_val)
-    
     rect(
       legend_x + (i-1) * color_legend_width/(length(legend_values)-1),
       legend_y - color_legend_height,
@@ -569,7 +565,6 @@ plot_circos_differential_expression <- function(annotated_results,
       border = NA
     )
   }
-  
   # Add tick marks and labels
   for (i in 1:length(legend_values)) {
     text(
@@ -580,7 +575,6 @@ plot_circos_differential_expression <- function(annotated_results,
       adj = c(0.5, 0.5)
     )
   }
-  
   # Add legend title
   text(
     legend_x + color_legend_width/2,
@@ -588,11 +582,9 @@ plot_circos_differential_expression <- function(annotated_results,
     "log2FoldChange",
     cex = 0.8
   )
-  
   # Close device
   dev.off()
 }
-
 
 ##################################################
 ########## TPM Plot with Peak Group ##############
@@ -644,4 +636,3 @@ prolonged_tpm <- ggplot(df_combined, aes(x = timepoint, y = mean_tpm, fill = gro
 if (!is.null(output_file)) {
   ggsave(output_file, prolonged_tpm, width = width, height = height, dpi = dpi)}
 }
-
