@@ -13,16 +13,16 @@ RNAseq and ATACseq Time Course Analysis of Doxycycline-Induced Gene Expression
 ## Introduction
 Understanding the temporal dynamics of gene expression is crucial for deciphering complex biological processes such as stem cell differentiation and responses to stimuli. This project uses a doxycycline (dox)-inducible system in mouse stem cells to explore gene expression changes over time. In this system, dox activates gene expression via the rtTA-TRE mechanism. However, dox itself may also exert off-target effects on the transcriptome.
 
+## Objectives
+1) Identify genes significantly regulated following dox administration.
+2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses.
+3) Investigate the role, significance, and chromosomal location of these genes.
+
 ## Section 1: Differential Expression Analysis
 Leveraging Dr. Rinn's lab RNA-seq dataset spanning five time points (0, 12, 24, 48, 96 hours) with replicates.
 
 ### Methods
 We employ the nf-core/rnaseq pipeline for data processing and DESeq2 for differential expression analysis, providing a practical application of bioinformatics skills to time-course data exploration.
-
-### Goals
-1) Identify genes significantly regulated following dox administration.
-2) Characterize the temporal profiles of these regulated genes, distinguishing between transient and sustained responses.
-3) Investigate the role, significance, and chromosomal location of these genes.
 
 ### Section 1.1: DESeq and TPM analysis (RNA-seq data processing)
 
@@ -54,82 +54,27 @@ returns a statistical summary for each gene.
 Only genes that both: (1) Fall below this significance threshold, and (2) Show a sustained expression change up to 96h are retained for further analysis and output.
 
 #### Mouse Results
-![prolonged_gene_heatmap](results/mouse/heatmap_prolonged_genes.png)
-A total of 27 genes had a prolonged expression trend up until last sampled time point of 96 hours after Dox treatment in mice. Note that in this case, time points 0 and 12 grouped together, suggesting similarity in expression in initial time points. However, as time point increases, samples form a different group, with samples from 24, 48 and 96 hours. In this heatmap, the difference in gene expression profiles are notable from time point 24h after dox treatment.
-
-#### Human Results
-![prolonged_gene_heatmap](results/human/heatmap_prolonged_genes.png)
-A total of 134 genes had a prolonged over or under expression trend up until last sampled time point of 96 hours after Dox treatment in human. Note that in this case, time points 0h show different expression profiles compared to the other time points. Samples from 12h and 24h show similar profiles, suggesting a change in expression in early stages. As time point increases, samples from 48h and 96h form a clearer group, that shows an opposite expression profile from the initial point of 0h.
-
-
-## Section 2: ATAC-seq analysis
-To determine if chromatin accessibility changes due to dox exposure in stem cells.
-We have performed a time course series of experiments measuring chromatin accessibility
-(ATACseq peaks) upon exposure to dox. These are 0, 30, 60, 90, 120, 150 minutes.
-Each time point has a replicate. The fastq sequencing files were processed by the
-NF_CORE ATAC-seq pipeline v-2.12 (https://nf-co.re/atacseq/2.1.2/).
-
-1) Classifying Genes by Timing of Expression Change
-- A custom function categorize_gene_expression() is used to examine the results of differential expression over time.
-- Each gene is assigned to one of three groups based on the earliest timepoint at which it begins to show a statistically significant change in expression that persists through to 96 hours: 12h-to-96h sustained change, 24h-to-96h sustained change and 48h-to-96h sustained change.
-
-This allows the separation of genes by the onset timing of their response to dox induction.
-
-2) Computing Expression Statistics
-The function calculate_stats() is applied to TPM values of genes in the classified groups.
-For each gene, the function compares expression between 0 hours (baseline) and 96 hours (final timepoint):
-- Calculates log2 fold change between the two timepoints,
-- Computes a p-value using a statistical test (e.g., t-test across biological replicates),
-returns a statistical summary for each gene.
-
-3) Filtering for Significant Genes
-- The p-values from the statistical comparison are adjusted for multiple hypothesis testing using the Benjamini-Hochberg procedure.
-- Genes with an adjusted p-value below a user-defined threshold (P_VALUE_FILTER) are selected as significantly differentially expressed.
-
-Only genes that both: (1) Fall below this significance threshold, and (2) Show a sustained expression change up to 96h are retained for further analysis and output.
-
-#### Mouse Results
-Number of genes exhibiting transient expression: 464
-Number of genes with expression sustained until the end: 10
-
-This is how many prolonged genes that are upregulated with dox: 3
-TPM summary of prolonged genes that are upregulated with dox
-    ##      0_avg            12_avg           24_avg           48_avg     
-    ##  Min.   : 3.921   Min.   : 3.704   Min.   : 7.351   Min.   :15.80  
-    ##  1st Qu.: 5.916   1st Qu.: 5.993   1st Qu.:10.061   1st Qu.:18.93  
-    ##  Median : 7.911   Median : 8.282   Median :12.772   Median :22.06  
-    ##  Mean   :10.543   Mean   :10.267   Mean   :17.730   Mean   :25.34  
-    ##  3rd Qu.:13.853   3rd Qu.:13.548   3rd Qu.:22.919   3rd Qu.:30.11  
-    ##  Max.   :19.795   Max.   :18.814   Max.   :33.066   Max.   :38.16  
-    ##      96_avg     
-    ##  Min.   :13.94  
-    ##  1st Qu.:15.49  
-    ##  Median :17.05  
-    ##  Mean   :23.35  
-    ##  3rd Qu.:28.06  
-    ##  Max.   :39.07
-
-This is how many prolonged genes that are downregulated with dox: 7
-TPM summary of prolonged genes that are downregulated with dox
-    ##      0_avg            12_avg           24_avg           48_avg      
-    ##  Min.   :0.3459   Min.   :0.2742   Min.   :0.1946   Min.   :0.1628  
-    ##  1st Qu.:1.0524   1st Qu.:0.9532   1st Qu.:0.4359   1st Qu.:0.4233  
-    ##  Median :1.4309   Median :1.2785   Median :0.6628   Median :0.5662  
-    ##  Mean   :2.9827   Mean   :2.4540   Mean   :1.0578   Mean   :1.0155  
-    ##  3rd Qu.:3.8831   3rd Qu.:3.9738   3rd Qu.:1.2912   3rd Qu.:1.1075  
-    ##  Max.   :9.2310   Max.   :5.7713   Max.   :3.0932   Max.   :3.3178  
-    ##      96_avg      
-    ##  Min.   :0.1434  
-    ##  1st Qu.:0.3983  
-    ##  Median :0.5995  
-    ##  Mean   :1.0293  
-    ##  3rd Qu.:1.1457  
-    ##  Max.   :3.3746
+- In a dox-inducible RNA-seq experiment in mouse stem cells, 464 genes exhibited transient expression changes, while only 10 genes showed sustained differential expression throughout the time course.
+- Of the sustained genes, 3 genes were upregulated following dox induction, with their TPM values steadily increasing across time points (mean TPM rising from 10.5 at 0 hours to 23.4 at 96 hours).
+- Conversely, 7 sustained genes were downregulated, with their mean TPM decreasing from 3.0 at 0 hours to 1.0 at 96 hours.
 
 ![prolonged_gene_heatmap](results/mouse/heatmap_prolonged_genes.png)
+- Principal grouping of samples indicated that time points 0 and 12 hours were similar in gene expression profiles, whereas samples from 24, 48, and 96 hours formed a distinct cluster, suggesting that major transcriptional changes began after 24 hours of dox treatment. Heatmap analysis confirmed that the divergence in gene expression became prominent starting at 24 hours.
+
+##### Summary
+These findings highlight a sharp transition in gene expression dynamics after 24 hours of dox induction, with only a small subset of genes maintaining prolonged up- or downregulation.
 
 #### Human Results
+- 1,494 genes exhibited transient expression changes, while 134 genes showed sustained differential expression throughout the time course.
+- Among the sustained genes, 54 were upregulated after dox treatment, with mean TPM values steadily increasing from 3.2 at baseline to 15.3 at 96 hours.
+- 80 sustained genes were downregulated, with their mean TPM values decreasing from 20.6 at 0 hours to 5.9 at 96 hours.
+
 ![prolonged_gene_heatmap](results/human/heatmap_prolonged_genes.png)
+- The 0-hour time point in human cells already displayed a distinct expression profile compared to all subsequent time points.
+- Samples from 12 and 24 hours clustered together, suggesting an early shift in gene expression after dox treatment, followed by a further divergence where 48- and 96-hour samples formed a distinct group with an opposite expression pattern relative to 0 hours.
+
+##### Summary
+These findings indicate a rapid and more extensive transcriptional response to dox induction in human stem cells compared to mouse stem cells, with clearer early-stage changes and a larger set of genes showing prolonged regulation.
 
 
 ### Section 2: ATAC-seq analysis
