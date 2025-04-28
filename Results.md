@@ -31,7 +31,10 @@ pipeline](https://nf-co.re/rnaseq) version 3.18, a standardized and
 reproducible bioinformatics pipeline built using
 [Nextflow](https://www.nextflow.io/).
 
-- Image from nf-core
+<figure>
+<img src="data/nf-core-rna-seq.jpeg" alt="rna-seq-nfcore" />
+<figcaption aria-hidden="true">rna-seq-nfcore</figcaption>
+</figure>
 
 In brief, the pipeline performs the following key steps:
 
