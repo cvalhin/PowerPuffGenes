@@ -1,5 +1,5 @@
 ---
-title: "PowerPuffGenes Report"
+title: "PowerPuffGenes Report: Mouse stem cells"
 authors: "FN, CV, LP"
 date: 2025-04-28
 output: github_document
@@ -425,7 +425,7 @@ Each time point has a replicate. The fastq sequencing files were processed by th
 NF_CORE ATACseq pipeline v-2.12 (https://nf-co.re/atacseq/2.1.2/).
 
 ```{r clean env and load data ATAC, include=FALSE}
-rm(list = setdiff(ls()[!sapply(mget(ls(), .GlobalEnv), is.function)], c("P_VALUE_FILTER", "RESULTS_PATH", "PEAK_PATH", "SPECIES", "g2s", "SAMPLE_PREFIX", "GTF_PATH")))
+rm(list = setdiff(ls()[!sapply(mget(ls(), .GlobalEnv), is.function)], c("P_VALUE_FILTER", "RESULTS_PATH", "PEAK_PATH", "SPECIES", "g2s", "SAMPLE_PREFIX", "GTF_PATH", "transient_genes")))
 load(file.path(RESULTS_PATH, "results_counts.RData"))
 load(file.path(RESULTS_PATH, "results_tpm.RData"))
 genes_of_interest <- read.csv(file.path(RESULTS_PATH, "prolonged_gene_list.csv"), header = TRUE)
@@ -538,8 +538,33 @@ print(c("This is how many dox lost peaks overlapped gene promoters", length(gene
 ```
 
 
-### Matching ATAC peaks to prolonged genes
-```{r matching peaks wirh prolonged genes RNAseq}
+### Matching ATAC peaks to transient and prolonged genes
+```{r matching peaks with transient and prolonged genes RNAseq}
+# filter common dox peaks genes for transient genes
+gene_promoters_trans <- intersect(dox_gene_promoter_ov$gene_name, transient_genes$gene_name)
+print(c("this is how many transient genes overlapped with common dox gene promoters", length(gene_promoters_trans)))
+
+# get tpm for transient genes with dox gene promoter peaks
+tpm_trans_genes <- avg_and_sd_values[avg_and_sd_values$gene_name %in% 
+                                    gene_promoters_trans, ]
+avg_tpm_trans_genes <- tpm_trans_genes[, grep("_avg", colnames(tpm_trans_genes))]
+print("TPM summary of transient genes overlapped with common dox gene promoters")
+print(summary(avg_tpm_trans_genes))
+
+# filter unique dox peaks genes for transient genes
+unique_gene_promoters_trans <- intersect(unique_to_dox_gene_promoter_ov$gene_name, transient_genes$gene_name)
+print(c("this is how many transient genes overlapped with unique dox gene promoters", length(unique_gene_promoters_trans)))
+if (length(unique_gene_promoters_trans) > 0) {
+  print(unique_gene_promoters_trans)
+}
+
+# get tpm for transient genes with unique dox gene promoter peaks
+unique_tpm_trans_genes <- avg_and_sd_values[avg_and_sd_values$gene_name %in% 
+                                    unique_gene_promoters_trans, ]
+unique_avg_tpm_trans_genes <- unique_tpm_trans_genes[, grep("_avg", colnames(unique_tpm_trans_genes))]
+print("TPM summary of transient genes overlapped with unique dox gene promoters")
+print(summary(unique_avg_tpm_trans_genes))
+
 # filter upregulated-prolonged genes
 up_genes <- genes_of_interest %>%
   filter(tpm_log2fc > 0)
