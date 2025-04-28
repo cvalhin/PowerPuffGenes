@@ -157,26 +157,46 @@ Data Processing
 - Identify downregulated genes lacking associated ATAC peaks.
 
 #### Mouse Results
-- This is how many peaks are common in dox: 38880
-- This is how many peaks are unique to dox condition: 1774
-- This is how many dox common peaks overlapped gene promoters: 18753
-- 
-![tpm_upgene_compare](results/mouse/bar_tpm_prolonged_down_genes.png)
+- 38,880 chromatin accessibility peaks were identified as common to the dox condition, while 1,774 peaks were unique to dox-treated cells.
+- Among the common peaks, 18,753 overlapped gene promoters, and 1,961 peaks that were lost after dox treatment also overlapped promoters, suggesting some level of chromatin remodeling at regulatory regions.
+- Interestingly, none of the prolonged upregulated genes overlapped with promoters marked only by dox-unique peaks, while 2 upregulated-prolonged genes showed overlap with common dox ATAC peaks.
+![tpm_upgene_compare](results/mouse/bar_tpm_prolonged_up_genes.png)
+- These two genes exhibited steadily increasing expression (mean TPM rising from 13.9 at 0h to 28.1 at 96h), while upregulated genes without detectable promoter accessibility showed generally lower expression levels.
+- Similarly, for downregulated-prolonged genes, none overlapped with promoters that lost accessibility in dox, and three downregulated genes lacked detectable ATAC-seq promoter peaks altogether.
+![tpm_downgene_compare](results/mouse/bar_tpm_prolonged_down_genes.png)
+- These downregulated genes exhibited sharp declines in expression, with mean TPM dropping from ~2.5 at baseline to ~0.78 at 96h. In contrast, downregulated genes associated with accessible promoters also decreased over time, although they tended to maintain slightly higher expression levels at later stages (mean TPM ~1.36 at 96h).
+
+##### Plots for upregulated-prolonged genes with ATAC gene promoter peaks
 ![prolonged_upgene_l2fc](results/mouse/lfc_prolonged_up_genes.png)
 ![prolonged_upgene_tpm](results/mouse/tpm_prolonged_up_genes.png)
-![tpm_downgene_compare](results/mouse/bar_tpm_prolonged_down_genes.png)
+
+##### Plots for downregulated-prolonged genes without ATAC gene promoter peaks
 ![prolonged_downgene_l2fc](results/mouse/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/mouse/tpm_prolonged_down_genes.png)
 
+##### Summary
+Overall, these results suggest that while changes in chromatin accessibility can accompany transcriptional changes in both up- and downregulated genes, many prolonged expression changes occur independently of major promoter accessibility shifts detectable by ATAC-seq.
+
 #### Human Results
+- 58,317 chromatin accessibility peaks were shared between non-dox and dox conditions, while 328 peaks were unique to dox.
+- Of these, 40 dox-unique peaks overlapped gene promoters, and 3,425 promoter peaks were lost in the dox condition.
+- Integration with RNA-seq revealed that none of the prolonged upregulated genes overlapped promoters associated with dox-unique peaks, but 37 upregulated genes did overlap with shared accessible promoters.
 ![tpm_upgene_compare](results/human/bar_tpm_prolonged_up_genes.png)
+- These genes showed marked increases in expression (mean TPM rising from ~4.5 at baseline to ~20.3 at 96h), whereas upregulated genes without accessible promoter peaks had much lower expression throughout (mean TPM ~0.4 at baseline to ~4.4 at 96h).
+- For downregulated genes, 8 prolonged downregulated genes overlapped promoters that lost accessibility in dox, including MIR34AHG, TRDN, RP11-69I8.2, LMO3, MAG, NLRP12, SERTM2 and SRY.
+- Additionally, 64 prolonged downregulated genes lacked detectable promoter accessibility in the dox condition.
+![tpm_downgene_compare](results/human/bar_tpm_prolonged_down_genes.png)
+- These downregulated genes showed declining expression over time, with those lacking promoter peaks dropping from a mean TPM of ~7.8 at 0h to ~2.4 at 96h, while those retaining promoter peaks started at a higher expression level (mean TPM ~23.7 at 0h) and also declined (mean TPM ~6.8 at 96h).
+
+##### Plots for upregulated-prolonged genes with ATAC gene promoter peaks
 ![prolonged_upgene_l2fc](results/human/lfc_prolonged_up_genes.png)
 ![prolonged_upgene_tpm](results/human/tpm_prolonged_up_genes.png)
-![tpm_downgene_compare](results/human/bar_tpm_prolonged_down_genes.png)
+##### Plots for downregulated-prolonged genes without ATAC gene promoter peaks
 ![prolonged_downgene_l2fc](results/human/lfc_prolonged_down_genes.png)
-
 ![prolonged_downgene_tpm](results/human/tpm_prolonged_down_genes.png)
 
+##### Summary
+Overall, these results suggest that in human cells, transcriptional repression of prolonged downregulated genes is more often associated with loss of promoter accessibility compared to the patterns observed in mice, while sustained upregulation occurs largely in the context of accessible promoters without strong emergence of new promoter accessibility.
 
 ## Section 3: IGV
 
