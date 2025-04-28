@@ -308,9 +308,9 @@ hours.
   (P_VALUE_FILTER) are selected as significantly differentially
   expressed.
 
-Only genes that both: (1) Fall below this significance threshold, and
-(2) Show a sustained expression change up to 96h are retained for
-further analysis and output.
+Only genes that both: (1) Show a sustained expression change up to 96h,
+and (2) Fall below this significance threshold are retained for further
+analysis and output.
 
 #### Mouse Results
 
@@ -441,6 +441,14 @@ levels at later stages (mean TPM ~1.36 at 96h).
 
 ![prolonged_downgene_l2fc](results/mouse/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/mouse/tpm_prolonged_down_genes.png)
+\#### Note for transiently-regulated genes - Among transiently regulated
+genes, 153 genes overlapped with common dox gene promoters. Their
+expression was moderately high, with mean TPM values starting at
+approximately 21.0 at 0 hours, peaking at around 43.8 at 12 hours, and
+then gradually decreasing to 30.4 by 96 hours. - Only three transient
+genes — Neurod1, Prcd, and Rps2-ps8 — overlapped with unique dox gene
+promoters. Their expression levels were relatively low and stable across
+the time series.
 
 #### Summary
 
@@ -487,6 +495,17 @@ at 96h).
 
 ![prolonged_downgene_l2fc](results/human/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/human/tpm_prolonged_down_genes.png)
+
+#### Note for transiently-regulated genes
+
+- 970 transiently regulated genes overlapped with common dox-accessible
+  promoters. Their average expression was moderate, with mean TPM values
+  starting around 11.5 at 0 hours, declining steadily to 8.2 by 96
+  hours.
+- Only two transient genes, WNT10A and BHLHE41, were associated with
+  unique dox-induced promoter accessibility. These genes were expressed
+  at lower levels overall, with mean TPM decreasing from 1.59 at 0 hours
+  to 0.96 at 96 hours.
 
 #### Summary
 

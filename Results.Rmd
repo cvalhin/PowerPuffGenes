@@ -98,7 +98,7 @@ returns a statistical summary for each gene.
 - The p-values from the statistical comparison are adjusted for multiple hypothesis testing using the Benjamini-Hochberg procedure.
 - Genes with an adjusted p-value below a user-defined threshold (P_VALUE_FILTER) are selected as significantly differentially expressed.
 
-Only genes that both: (1) Fall below this significance threshold, and (2) Show a sustained expression change up to 96h are retained for further analysis and output.
+Only genes that both: (1) Show a sustained expression change up to 96h, and (2) Fall below this significance threshold are retained for further analysis and output.
 
 #### Mouse Results
 - In a dox-inducible RNA-seq experiment in mouse stem cells, 464 genes exhibited transient expression changes, while only 10 genes showed sustained differential expression throughout the time course.
@@ -175,6 +175,9 @@ Data Processing
 
 ![prolonged_downgene_l2fc](results/mouse/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/mouse/tpm_prolonged_down_genes.png)
+#### Note for transiently-regulated genes
+- Among transiently regulated genes, 153 genes overlapped with common dox gene promoters. Their expression was moderately high, with mean TPM values starting at approximately 21.0 at 0 hours, peaking at around 43.8 at 12 hours, and then gradually decreasing to 30.4 by 96 hours. 
+- Only three transient genes — Neurod1, Prcd, and Rps2-ps8 — overlapped with unique dox gene promoters. Their expression levels were relatively low and stable across the time series.
 
 #### Summary
 Overall, these results suggest that while changes in chromatin accessibility can accompany transcriptional changes in both up- and downregulated genes, many prolonged expression changes occur independently of major promoter accessibility shifts detectable by ATAC-seq.
@@ -201,6 +204,10 @@ Overall, these results suggest that while changes in chromatin accessibility can
 
 ![prolonged_downgene_l2fc](results/human/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/human/tpm_prolonged_down_genes.png)
+
+#### Note for transiently-regulated genes
+- 970 transiently regulated genes overlapped with common dox-accessible promoters. Their average expression was moderate, with mean TPM values starting around 11.5 at 0 hours, declining steadily to 8.2 by 96 hours.
+- Only two transient genes, WNT10A and BHLHE41, were associated with unique dox-induced promoter accessibility. These genes were expressed at lower levels overall, with mean TPM decreasing from 1.59 at 0 hours to 0.96 at 96 hours.
 
 #### Summary
 Overall, these results suggest that in human cells, transcriptional repression of prolonged downregulated genes is more often associated with loss of promoter accessibility compared to the patterns observed in mice, while sustained upregulation occurs largely in the context of accessible promoters without strong emergence of new promoter accessibility.

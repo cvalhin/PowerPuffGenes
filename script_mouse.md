@@ -1,4 +1,4 @@
-PowerPuffGenes Report
+PowerPuffGenes Report: Mouse stem cells
 ================
 2025-04-28
 
@@ -566,7 +566,91 @@ print(c("This is how many dox lost peaks overlapped gene promoters", length(gene
     ## [1] "This is how many dox lost peaks overlapped gene promoters"
     ## [2] "1961"
 
-### Matching ATAC peaks to prolonged genes
+### Matching ATAC peaks to transient and prolonged genes
+
+``` r
+# filter common dox peaks genes for transient genes
+gene_promoters_trans <- intersect(dox_gene_promoter_ov$gene_name, transient_genes$gene_name)
+print(c("this is how many transient genes overlapped with common dox gene promoters", length(gene_promoters_trans)))
+```
+
+    ## [1] "this is how many transient genes overlapped with common dox gene promoters"
+    ## [2] "153"
+
+``` r
+# get tpm for transient genes with dox gene promoter peaks
+tpm_trans_genes <- avg_and_sd_values[avg_and_sd_values$gene_name %in% 
+                                    gene_promoters_trans, ]
+avg_tpm_trans_genes <- tpm_trans_genes[, grep("_avg", colnames(tpm_trans_genes))]
+print("TPM summary of transient genes overlapped with common dox gene promoters")
+```
+
+    ## [1] "TPM summary of transient genes overlapped with common dox gene promoters"
+
+``` r
+print(summary(avg_tpm_trans_genes))
+```
+
+    ##      0_avg               12_avg             24_avg             48_avg        
+    ##  Min.   :   0.0184   Min.   :   0.000   Min.   :   0.074   Min.   :   0.082  
+    ##  1st Qu.:   0.7844   1st Qu.:   0.687   1st Qu.:   0.523   1st Qu.:   0.424  
+    ##  Median :   1.4463   Median :   1.475   Median :   1.391   Median :   1.163  
+    ##  Mean   :  20.9641   Mean   :  43.839   Mean   :  42.185   Mean   :  45.382  
+    ##  3rd Qu.:   3.1572   3rd Qu.:   3.649   3rd Qu.:   3.538   3rd Qu.:   2.849  
+    ##  Max.   :2566.2581   Max.   :6088.390   Max.   :5928.518   Max.   :6447.627  
+    ##      96_avg        
+    ##  Min.   :   0.153  
+    ##  1st Qu.:   0.591  
+    ##  Median :   1.237  
+    ##  Mean   :  30.368  
+    ##  3rd Qu.:   3.544  
+    ##  Max.   :4157.756
+
+``` r
+# filter unique dox peaks genes for transient genes
+unique_gene_promoters_trans <- intersect(unique_to_dox_gene_promoter_ov$gene_name, transient_genes$gene_name)
+print(c("this is how many transient genes overlapped with unique dox gene promoters", length(unique_gene_promoters_trans)))
+```
+
+    ## [1] "this is how many transient genes overlapped with unique dox gene promoters"
+    ## [2] "3"
+
+``` r
+if (length(unique_gene_promoters_trans) > 0) {
+  print(unique_gene_promoters_trans)
+}
+```
+
+    ## [1] "Neurod1"  "Prcd"     "Rps2-ps8"
+
+``` r
+# get tpm for transient genes with unique dox gene promoter peaks
+unique_tpm_trans_genes <- avg_and_sd_values[avg_and_sd_values$gene_name %in% 
+                                    unique_gene_promoters_trans, ]
+unique_avg_tpm_trans_genes <- unique_tpm_trans_genes[, grep("_avg", colnames(unique_tpm_trans_genes))]
+print("TPM summary of transient genes overlapped with unique dox gene promoters")
+```
+
+    ## [1] "TPM summary of transient genes overlapped with unique dox gene promoters"
+
+``` r
+print(summary(unique_avg_tpm_trans_genes))
+```
+
+    ##      0_avg           12_avg          24_avg           48_avg      
+    ##  Min.   :1.828   Min.   :1.627   Min.   :0.7289   Min.   :0.5369  
+    ##  1st Qu.:1.885   1st Qu.:1.889   1st Qu.:0.9000   1st Qu.:0.5938  
+    ##  Median :1.942   Median :2.151   Median :1.0711   Median :0.6506  
+    ##  Mean   :1.947   Mean   :2.045   Mean   :1.6185   Mean   :1.3397  
+    ##  3rd Qu.:2.007   3rd Qu.:2.254   3rd Qu.:2.0633   3rd Qu.:1.7412  
+    ##  Max.   :2.073   Max.   :2.358   Max.   :3.0556   Max.   :2.8317  
+    ##      96_avg     
+    ##  Min.   :1.031  
+    ##  1st Qu.:1.059  
+    ##  Median :1.087  
+    ##  Mean   :1.158  
+    ##  3rd Qu.:1.222  
+    ##  Max.   :1.357
 
 ``` r
 # filter upregulated-prolonged genes
