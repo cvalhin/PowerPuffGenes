@@ -441,14 +441,17 @@ levels at later stages (mean TPM ~1.36 at 96h).
 
 ![prolonged_downgene_l2fc](results/mouse/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/mouse/tpm_prolonged_down_genes.png)
-\#### Note for transiently-regulated genes - Among transiently regulated
-genes, 153 genes overlapped with common dox gene promoters. Their
-expression was moderately high, with mean TPM values starting at
-approximately 21.0 at 0 hours, peaking at around 43.8 at 12 hours, and
-then gradually decreasing to 30.4 by 96 hours. - Only three transient
-genes — Neurod1, Prcd, and Rps2-ps8 — overlapped with unique dox gene
-promoters. Their expression levels were relatively low and stable across
-the time series.
+
+#### Note for transiently-regulated genes
+
+- Among transiently regulated genes, 153 genes overlapped with common
+  dox gene promoters. Their expression was moderately high, with mean
+  TPM values starting at approximately 21.0 at 0 hours, peaking at
+  around 43.8 at 12 hours, and then gradually decreasing to 30.4 by 96
+  hours.
+- Only three transient genes — Neurod1, Prcd, and Rps2-ps8 — overlapped
+  with unique dox gene promoters. Their expression levels were
+  relatively low and stable across the time series.
 
 #### Summary
 
