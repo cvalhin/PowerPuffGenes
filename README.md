@@ -36,7 +36,7 @@ This project explores the temporal dynamics of gene expression and chromatin acc
 
 1. Process RNA-seq FASTQ files with `nf-core/rnaseq`.
 2. Process ATAC-seq FASTQ files with `nf-core/atacseq`.
-3. Follow RNA-seq and ATAC-seq analysis workflow in [script_mouse.Rmd](script_mouse.Rmd) or [script_human.Rmd](script_human.Rmd)
+3. Follow the RNA-seq and ATAC-seq analysis workflows in [script_mouse.Rmd](script_mouse.Rmd) or [script_human.Rmd](script_human.Rmd)
 4. Visualize specific genes of interest using IGV.
 
 ---
