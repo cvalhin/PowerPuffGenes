@@ -21,7 +21,9 @@ This project explores the temporal dynamics of gene expression and chromatin acc
 - A subset of genes displayed sustained expression changes across the full time course.
 - ATAC-seq analysis indicated chromatin accessibility changes related to prolonged gene regulation.
 - Important genes such as **Usp26**, **Cbr3**, **MAG**, **AUTS2**, and **NOD1** were identified with significant changes in expression and/or chromatin accessibility.
-- Full reference list available in [Results.md](Results.md).
+- Results are summarized in [Results.md](Results.md).
+- Detailed results for mice are available in [script_mouse.md](script_mouse.md).
+- Detailed results for humans are available in [script_human.md](script_human.md).
 
 ---
 
