@@ -34,7 +34,10 @@ pipeline](https://nf-co.re/rnaseq) version 3.18, a standardized and
 reproducible bioinformatics pipeline built using
 [Nextflow](https://www.nextflow.io/).
 
-- Image from nf-core
+<figure>
+<img src="data/nf-core-rna-seq.jpeg" alt="rna-seq-nfcore" />
+<figcaption aria-hidden="true">rna-seq-nfcore</figcaption>
+</figure>
 
 In brief, the pipeline performs the following key steps:
 
@@ -499,7 +502,8 @@ The Carbonyl reductase \[NADPH\] 3
 [(Cbr3)](https://www.uniprot.org/uniprotkb/Q8K354/entry) is an enzyme
 that uses NADPH to turn harmful carbonyl compounds (especially
 ortho-quinones) into safer alcohols, possibly protecting cells from
-damage. This gene was upregulated in mice after
+damage. This gene was upregulated in mice after 48 hours and keeps being
+upregulated for at least 96 hours after dox treatment.
 
 ![**Cbr3 gene ATAC and RNA seq IGV tracks
 combined**](results/IGV/Cbr3_mouse_ATAC_RNA.png) Peaks represent the
