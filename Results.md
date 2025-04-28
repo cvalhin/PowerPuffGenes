@@ -359,7 +359,7 @@ response to dox induction in human stem cells compared to mouse stem
 cells, with clearer early-stage changes and a larger set of genes
 showing prolonged regulation.
 
-### Section 2: ATAC-seq analysis
+## Section 2: ATAC-seq analysis
 
 To determine if chromatin accessibility of prolonged gene changes due to
 dox exposure in mouse and human stem cells. We have performed a time
@@ -369,7 +369,7 @@ Each time point has a replicate. The fastq sequencing files were
 processed by the NF_CORE ATAC-seq pipeline v-2.12
 (<https://nf-co.re/atacseq/2.1.2/>).
 
-#### Methods
+### Methods
 
 1)  Data Collection
 
@@ -403,7 +403,7 @@ processed by the NF_CORE ATAC-seq pipeline v-2.12
 - Find upregulated genes with promoter accessibility.
 - Identify downregulated genes lacking associated ATAC peaks.
 
-#### Mouse Results
+### Mouse Results
 
 - 38,880 chromatin accessibility peaks were identified as common to the
   dox condition, while 1,774 peaks were unique to dox-treated cells.
@@ -429,17 +429,17 @@ downregulated genes associated with accessible promoters also decreased
 over time, although they tended to maintain slightly higher expression
 levels at later stages (mean TPM ~1.36 at 96h).
 
-##### Plots for upregulated-prolonged genes with ATAC gene promoter peaks
+#### Plots for upregulated-prolonged genes with ATAC gene promoter peaks
 
 ![prolonged_upgene_l2fc](results/mouse/lfc_prolonged_up_genes.png)
 ![prolonged_upgene_tpm](results/mouse/tpm_prolonged_up_genes.png)
 
-##### Plots for downregulated-prolonged genes without ATAC gene promoter peaks
+#### Plots for downregulated-prolonged genes without ATAC gene promoter peaks
 
 ![prolonged_downgene_l2fc](results/mouse/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/mouse/tpm_prolonged_down_genes.png)
 
-##### Summary
+#### Summary
 
 Overall, these results suggest that while changes in chromatin
 accessibility can accompany transcriptional changes in both up- and
@@ -447,7 +447,7 @@ downregulated genes, many prolonged expression changes occur
 independently of major promoter accessibility shifts detectable by
 ATAC-seq.
 
-#### Human Results
+### Human Results
 
 - 58,317 chromatin accessibility peaks were shared between non-dox and
   dox conditions, while 328 peaks were unique to dox.
@@ -475,17 +475,17 @@ those lacking promoter peaks dropping from a mean TPM of ~7.8 at 0h to
 expression level (mean TPM ~23.7 at 0h) and also declined (mean TPM ~6.8
 at 96h).
 
-##### Plots for upregulated-prolonged genes with ATAC gene promoter peaks
+#### Plots for upregulated-prolonged genes with ATAC gene promoter peaks
 
 ![prolonged_upgene_l2fc](results/human/lfc_prolonged_up_genes.png)
 ![prolonged_upgene_tpm](results/human/tpm_prolonged_up_genes.png)
 
-##### Plots for downregulated-prolonged genes without ATAC gene promoter peaks
+#### Plots for downregulated-prolonged genes without ATAC gene promoter peaks
 
 ![prolonged_downgene_l2fc](results/human/lfc_prolonged_down_genes.png)
 ![prolonged_downgene_tpm](results/human/tpm_prolonged_down_genes.png)
 
-##### Summary
+#### Summary
 
 Overall, these results suggest that in human cells, transcriptional
 repression of prolonged downregulated genes is more often associated
